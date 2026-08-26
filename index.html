@@ -401,8 +401,9 @@ html, body {
 #timer.urgent #timer-valeur { color: #ff4444; animation: pulse-vs .5s ease-in-out infinite; }
 #timer-valeur { font-family: var(--font-titre); font-size: 5vh; z-index: 1; }
 
-/* Vinyle blind test */
-#vinyle {
+/* Vinyles blind test (le second sert au double blind test) */
+#vinyles { display: flex; gap: 4vw; align-items: center; }
+.vinyle {
   width: 22vh; height: 22vh; border-radius: 50%;
   background: repeating-radial-gradient(circle, #111 0 .5vh, #1d1d1d .5vh 1vh);
   border: .6vh solid #333;
@@ -410,14 +411,47 @@ html, body {
   animation: tourne 2.2s linear infinite;
   box-shadow: 0 0 50px rgba(160, 80, 255, .5);
 }
-#vinyle.visible { display: flex; }
-#vinyle.pause { animation-play-state: paused; }
-#vinyle .centre-vinyle {
+.vinyle.visible { display: flex; }
+.vinyle.pause { animation-play-state: paused; }
+.vinyle .centre-vinyle {
   width: 7vh; height: 7vh; border-radius: 50%;
   background: radial-gradient(circle, var(--or), #c78f00);
   display: flex; align-items: center; justify-content: center; font-size: 3.5vh;
 }
 @keyframes tourne { to { transform: rotate(360deg); } }
+
+/* Badge de vitesse de lecture (ralenti / accéléré) */
+#vitesse-badge {
+  display: none;
+  font-family: var(--font-titre); font-size: 3vh;
+  padding: .5vh 1.8vw; border-radius: 4vh;
+  background: rgba(0, 0, 0, .55);
+  border: .3vh solid #ff9f1c; color: #ff9f1c;
+  animation: tour-pop .3s ease;
+}
+#vitesse-badge.visible { display: block; }
+
+/* Toast « le public chante » */
+#public-chante {
+  position: fixed; top: 16vh; left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  align-items: center; gap: 1.2vw;
+  font-family: var(--font-titre); font-size: 5vh;
+  padding: 1.6vh 3vw; border-radius: 3vh;
+  background: rgba(0, 0, 0, .75);
+  border: .5vh solid var(--or); color: var(--or);
+  box-shadow: 0 0 50px rgba(255, 210, 74, .6);
+  z-index: 95;
+}
+#public-chante.visible { display: flex; animation: public-pop 1.9s ease forwards; }
+@keyframes public-pop {
+  0%   { transform: translateX(-50%) scale(0) rotate(-6deg); opacity: 0; }
+  12%  { transform: translateX(-50%) scale(1.15) rotate(2deg); opacity: 1; }
+  20%  { transform: translateX(-50%) scale(1); }
+  80%  { transform: translateX(-50%) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) scale(.8) translateY(-4vh); opacity: 0; }
+}
 
 /* Vidéo (Just Dance & co) */
 #video-zone {
@@ -619,7 +653,7 @@ html, body {
 }
 
 /* ====== RIDEAU BLIND TEST (cache le clip YouTube) ====== */
-#video-rideau {
+.video-rideau {
   position: absolute; inset: 0;
   display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1vh;
   background:
@@ -627,9 +661,27 @@ html, body {
   z-index: 2;
   font-family: var(--font-titre); font-size: 7vh;
 }
-#video-rideau .note { font-family: var(--font-texte); font-size: 2.2vh; color: rgba(255,255,255,.75); font-weight: 700; }
+.video-rideau .note { font-family: var(--font-texte); font-size: 2.2vh; color: rgba(255,255,255,.75); font-weight: 700; }
 #video-zone { position: relative; }
-#video-zone:not(.cache) #video-rideau { display: none; }
+#video-zone:not(.cache) .video-rideau { display: none; }
+
+/* Double blind test : deux lecteurs côte à côte */
+#video-zone.double {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1vw;
+  width: min(92vw, 160vh);
+  aspect-ratio: 32 / 9;
+  background: transparent; border: none; box-shadow: none;
+}
+#video-zone.double .video-cellule {
+  position: relative; overflow: hidden;
+  border-radius: 2vh;
+  border: .5vh solid rgba(160, 80, 255, .7);
+  box-shadow: 0 0 40px rgba(160, 80, 255, .4);
+  background: #000;
+}
+#video-zone.double .video-cellule iframe { width: 100%; height: 100%; border: 0; display: block; }
 
 /* ====== CHOIX DE FICHIER (déclenché depuis le téléphone) ====== */
 #fichier-overlay {
@@ -730,8 +782,12 @@ html, body {
   </div>
   <div id="epreuve-centre">
     <div id="epreuve-icone"></div>
-    <div id="vinyle"><div class="centre-vinyle">🎵</div></div>
+    <div id="vinyles">
+      <div class="vinyle" id="vinyle"><div class="centre-vinyle">🎵</div></div>
+      <div class="vinyle" id="vinyle2"><div class="centre-vinyle">🎶</div></div>
+    </div>
     <div id="video-zone"></div>
+    <div id="vitesse-badge"></div>
     <div id="epreuve-texte"></div>
     <div id="epreuve-consigne"></div>
     <div id="dcc-choix">
@@ -778,6 +834,9 @@ html, body {
 
 <!-- MASCOTTE COUCOU -->
 <div id="mascotte-coucou"><img src="" alt=""></div>
+
+<!-- TOAST PUBLIC CHANTE -->
+<div id="public-chante"><span>🎤</span><span id="public-chante-texte"></span></div>
 
 <!-- TIMER -->
 <div id="timer">
@@ -846,6 +905,8 @@ html, body {
     <tr><td><kbd>E</kbd> / <kbd>P</kbd></td><td>Épreuve commune : les Enfants / Parents gagnent</td></tr>
     <tr><td><kbd>V</kbd> (maintenir)</td><td>Voir le secret du mime (présentateur uniquement)</td></tr>
     <tr><td><kbd>M</kbd></td><td>Jouer / mettre en pause la musique du blind test</td></tr>
+    <tr><td><kbd>S</kbd></td><td>🥁 Défi surprise ! (rappuyer pour terminer)</td></tr>
+    <tr><td><kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd></td><td>Choisir Duo / Carré / Cash sur les questions à propositions</td></tr>
     <tr><td><kbd>C</kbd></td><td>Changer d'équipe manuellement</td></tr>
     <tr><td><kbd>F</kbd></td><td>Écran de victoire finale &nbsp;•&nbsp; <kbd>Échap</kbd> pour revenir</td></tr>
     <tr><td><kbd>Échap</kbd></td><td>Revenir au mur sans valider</td></tr>

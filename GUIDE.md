@@ -63,6 +63,26 @@ points normaux) ou **CASH** (sans aide, points doublés !). Choisis le mode avec
 les touches `1`/`2`/`3`, un clic sur les boutons de l'écran, ou depuis le
 téléphone. `R` révèle la réponse et surligne la bonne proposition.
 
+## 🎵 Pendant les blind tests (télécommande)
+
+Dès qu'une carte a une musique ou une vidéo, la télécommande affiche :
+
+- **la vitesse de lecture** : 3 ralentis (🐌 ×0.25 / ×0.5 / ×0.75), normal (×1)
+  et 3 accélérés (⚡ ×1.25 / ×1.5 / ×2). Effet garanti sur un blind test !
+  Un badge s'affiche sur le grand écran et les vinyles tournent à la bonne
+  vitesse. Tout revient à la normale à la carte suivante.
+- **🎤 « Le public chante ! »** : deux boutons +1 (Enfants / Parents) pour
+  récompenser la salle quand elle chante — applaudissements, toast à l'écran
+  et point ajouté en direct.
+
+## 🎶 Double blind test
+
+Le type « Double blind test » joue **deux musiques en même temps** — il faut
+trouver les deux titres ! La carte **19** en est un. Remplis `musique` +
+`musique2` (fichiers ou 📂 PC) ou `youtube` + `youtube2` (deux clips côte à
+côte, cachés par des rideaux — `R` révèle tout). `M` lance/met en pause les
+deux en même temps, et la vitesse s'applique aux deux.
+
 ## 🥁 Défi surprise
 
 À TOUT MOMENT de la soirée : touche `S` (ou le gros bouton « 🥁 DÉFI SURPRISE »

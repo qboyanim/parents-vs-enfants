@@ -11,6 +11,7 @@ const CATEGORIES = {
   question:  { nom: "QUESTION",            icone: "❓", couleur: "#4da6ff" },
   triche:    { nom: "QUESTION DIABOLIQUE", icone: "😈", couleur: "#c04dff" },
   blindtest: { nom: "BLIND TEST",          icone: "🎵", couleur: "#a05cff" },
+  doubleblindtest: { nom: "DOUBLE BLIND TEST", icone: "🎶", couleur: "#7b5cff" },
   mime:      { nom: "MIME",                icone: "🎭", couleur: "#ff9f1c" },
   defi:      { nom: "DÉFI",                icone: "💪", couleur: "#ffd24a" },
   bonus:     { nom: "BONUS",               icone: "🎁", couleur: "#3ddc84" },
@@ -36,7 +37,8 @@ let ecranActuel = "titre";
 let saisie = "";
 let saisieTimeout = null;
 let timerRestant = 0, timerTotal = 0, timerInterval = null;
-let audioMusique = null;
+let lecteursAudio = [];
+let vitesseLecture = 1;
 let indiceTimeout = null;
 
 function sauvegarder() {
@@ -97,6 +99,11 @@ const sons = {
     bip(150, 0, .35, "sine", .5); bip(60, .02, .4, "sine", .5);
     bruit(.02, .9, .25, 7000, "highpass");
     [523, 659, 784, 1047].forEach((f, i) => bip(f, .25 + i * .09, .3, "triangle", .22));
+  },
+  publicChante() {
+    // Applaudissements (rafales de bruit) + petit air joyeux
+    for (let i = 0; i < 14; i++) bruit(i * .05 + Math.random() * .02, .04, .18, 3000 + Math.random() * 3000);
+    [659, 784, 988, 1319].forEach((f, i) => bip(f, .1 + i * .09, .25, "triangle", .2));
   },
   jingle()   { [440, 554, 659, 880].forEach((f, i) => bip(f, i * .09, .25, "square", .12)); },
   bon()      { [523, 659, 784, 1047].forEach((f, i) => bip(f, i * .1, .3, "triangle", .22)); },
@@ -265,9 +272,12 @@ function ouvrirEpreuve() {
     eqEl.style.border = ".3vh solid " + eq.couleur;
   }
 
-  $("epreuve-icone").textContent = carte.type === "blindtest" ? "" : cat.icone;
-  $("vinyle").classList.toggle("visible", carte.type === "blindtest");
+  const estBlindTest = carte.type === "blindtest" || carte.type === "doubleblindtest";
+  $("epreuve-icone").textContent = estBlindTest ? "" : cat.icone;
+  $("vinyle").classList.toggle("visible", estBlindTest);
+  $("vinyle2").classList.toggle("visible", carte.type === "doubleblindtest");
   $("vinyle").classList.add("pause");
+  $("vinyle2").classList.add("pause");
   $("epreuve-texte").textContent = contenu.texte || "";
   $("epreuve-consigne").textContent = contenu.consigne || "";
 
@@ -280,7 +290,8 @@ function ouvrirEpreuve() {
   // Petite mascotte selon l'épreuve
   const POSES_EPREUVE = {
     question: "livre", triche: "question", piege: "question", mime: "paint",
-    blindtest: "saut", defi: "pouce", video: "saut", bonus: "coeur", malus: "question",
+    blindtest: "saut", doubleblindtest: "megaphone", defi: "pouce", video: "saut",
+    bonus: "coeur", malus: "question",
   };
   const masc = $("epreuve-mascotte");
   masc.src = "images/lilou-" + (POSES_EPREUVE[carte.type] || "salut") + ".png";
@@ -321,12 +332,14 @@ function ouvrirEpreuve() {
 
   // Musique et vidéo (l'arrêt du média précédent doit venir avant l'affichage du nouveau)
   stopperMusique();
-  if (contenu.musique) {
-    resoudreMedia(contenu.musique).then((url) => {
+  for (const champMusique of ["musique", "musique2"]) {
+    if (!contenu[champMusique]) continue;
+    resoudreMedia(contenu[champMusique]).then((url) => {
       if (!carteEnCours || carteEnCours.numero !== numero) return;
-      if (!url) { annoncerEpreuve("⚠️ Musique introuvable : " + contenu.musique); return; }
-      audioMusique = new Audio(url);
-      audioMusique.addEventListener("error", () => annoncerEpreuve("⚠️ Musique illisible : " + contenu.musique));
+      if (!url) { annoncerEpreuve("⚠️ Musique introuvable : " + contenu[champMusique]); return; }
+      const a = new Audio(url);
+      a.addEventListener("error", () => annoncerEpreuve("⚠️ Musique illisible : " + contenu[champMusique]));
+      lecteursAudio.push(a);
     });
   }
   montrerVideo(contenu, carte.type, numero);
@@ -583,7 +596,7 @@ function basculerReponse() {
 
 /* Vidéos (Just Dance…) : champ youtube (lien ou identifiant) ou video (fichier local) */
 
-let lecteurYoutube = null, youtubeEnLecture = false, lecteurVideo = null;
+let lecteursYT = [], youtubeEnLecture = false, lecteurVideo = null;
 
 function idYoutube(s) {
   if (!s) return null;
@@ -593,36 +606,58 @@ function idYoutube(s) {
   return null;
 }
 
+function creerIframeYT(id) {
+  const f = document.createElement("iframe");
+  f.src = "https://www.youtube.com/embed/" + id + "?enablejsapi=1&rel=0&modestbranding=1";
+  f.allow = "autoplay; encrypted-media; fullscreen";
+  f.allowFullscreen = true;
+  return f;
+}
+
+function creerRideau() {
+  const rideau = document.createElement("div");
+  rideau.className = "video-rideau";
+  rideau.innerHTML = "🎵 ❓ 🎵<div class='note'>Écoutez bien… l'image est cachée !</div>";
+  return rideau;
+}
+
 function montrerVideo(contenu, typeCarte, numero) {
   const zone = $("video-zone");
   zone.innerHTML = "";
-  zone.classList.remove("cache");
-  lecteurYoutube = null; lecteurVideo = null; youtubeEnLecture = false;
+  zone.classList.remove("cache", "double");
+  lecteursYT = []; lecteurVideo = null; youtubeEnLecture = false;
   const ecran = $("ecran-epreuve");
+  const estBlindTest = typeCarte === "blindtest" || typeCarte === "doubleblindtest";
   let visible = false;
 
-  if (contenu.youtube) {
-    const id = idYoutube(contenu.youtube);
-    if (id) {
-      const f = document.createElement("iframe");
-      f.src = "https://www.youtube.com/embed/" + id + "?enablejsapi=1&rel=0&modestbranding=1";
-      f.allow = "autoplay; encrypted-media; fullscreen";
-      f.allowFullscreen = true;
-      zone.appendChild(f);
-      lecteurYoutube = f;
-      visible = true;
-      // Blind test avec clip YouTube : on cache l'image derrière un rideau,
-      // le son joue quand même. La touche R (réponse) lève le rideau.
-      if (typeCarte === "blindtest") {
-        const rideau = document.createElement("div");
-        rideau.id = "video-rideau";
-        rideau.innerHTML = "🎵 ❓ 🎵<div class='note'>Écoutez bien… l'image est cachée !</div>";
-        zone.appendChild(rideau);
-        zone.classList.add("cache");
-      }
-    } else {
-      annoncerEpreuve("⚠️ Lien YouTube invalide : " + contenu.youtube);
-    }
+  const idsYT = [contenu.youtube, contenu.youtube2]
+    .map(idYoutube)
+    .filter(Boolean);
+
+  if ((contenu.youtube || contenu.youtube2) && !idsYT.length) {
+    annoncerEpreuve("⚠️ Lien YouTube invalide");
+  }
+
+  if (idsYT.length === 1) {
+    const f = creerIframeYT(idsYT[0]);
+    zone.appendChild(f);
+    lecteursYT.push(f);
+    if (estBlindTest) { zone.appendChild(creerRideau()); zone.classList.add("cache"); }
+    visible = true;
+  } else if (idsYT.length >= 2) {
+    // Double blind test : deux lecteurs côte à côte
+    zone.classList.add("double");
+    idsYT.slice(0, 2).forEach((id) => {
+      const cellule = document.createElement("div");
+      cellule.className = "video-cellule";
+      const f = creerIframeYT(id);
+      cellule.appendChild(f);
+      cellule.appendChild(creerRideau());
+      zone.appendChild(cellule);
+      lecteursYT.push(f);
+    });
+    if (estBlindTest) zone.classList.add("cache");
+    visible = true;
   } else if (contenu.video) {
     resoudreMedia(contenu.video).then((url) => {
       if (!carteEnCours || carteEnCours.numero !== numero) return;
@@ -642,41 +677,90 @@ function montrerVideo(contenu, typeCarte, numero) {
   ecran.classList.toggle("epreuve-video", visible);
 }
 
-function commandeYoutube(fonction) {
-  if (!lecteurYoutube || !lecteurYoutube.contentWindow) return;
-  lecteurYoutube.contentWindow.postMessage(JSON.stringify({ event: "command", func: fonction, args: "" }), "*");
+function commandeYoutube(fonction, args) {
+  lecteursYT.forEach((f) => {
+    if (!f.contentWindow) return;
+    f.contentWindow.postMessage(JSON.stringify({ event: "command", func: fonction, args: args || "" }), "*");
+  });
 }
 
 function basculerMusique() {
-  if (lecteurYoutube) {
+  if (lecteursYT.length) {
     commandeYoutube(youtubeEnLecture ? "pauseVideo" : "playVideo");
     youtubeEnLecture = !youtubeEnLecture;
+    $("vinyle").classList.toggle("pause", !youtubeEnLecture);
+    $("vinyle2").classList.toggle("pause", !youtubeEnLecture);
     return;
   }
   if (lecteurVideo) {
     if (lecteurVideo.paused) lecteurVideo.play(); else lecteurVideo.pause();
     return;
   }
-  if (!audioMusique) return;
-  if (audioMusique.paused) {
-    audioMusique.play();
-    $("vinyle").classList.remove("pause");
+  if (!lecteursAudio.length) return;
+  const enPause = lecteursAudio[0].paused;
+  lecteursAudio.forEach(a => { if (enPause) a.play(); else a.pause(); });
+  $("vinyle").classList.toggle("pause", !enPause);
+  $("vinyle2").classList.toggle("pause", !enPause);
+}
+
+/* Vitesse de lecture : ralenti / normal / accéléré (télécommande) */
+function appliquerVitesse(taux) {
+  taux = +taux;
+  if (![0.25, 0.5, 0.75, 1, 1.25, 1.5, 2].includes(taux)) return;
+  vitesseLecture = taux;
+  lecteursAudio.forEach(a => {
+    try { a.preservesPitch = false; a.mozPreservesPitch = false; } catch (e) {}
+    a.playbackRate = taux;
+  });
+  if (lecteurVideo) lecteurVideo.playbackRate = taux;
+  commandeYoutube("setPlaybackRate", [taux]);
+  // Les vinyles tournent à la vitesse choisie
+  const duree = (2.2 / taux) + "s";
+  $("vinyle").style.animationDuration = duree;
+  $("vinyle2").style.animationDuration = duree;
+  const badge = $("vitesse-badge");
+  if (taux === 1) {
+    badge.classList.remove("visible");
   } else {
-    audioMusique.pause();
-    $("vinyle").classList.add("pause");
+    badge.textContent = (taux < 1 ? "🐌 RALENTI x" : "⚡ ACCÉLÉRÉ x") + taux;
+    badge.classList.add("visible");
   }
+  envoyerEtat();
 }
 
 function stopperMusique() {
-  if (audioMusique) { audioMusique.pause(); audioMusique = null; }
+  lecteursAudio.forEach(a => { try { a.pause(); } catch (e) {} });
+  lecteursAudio = [];
   if (lecteurVideo) { try { lecteurVideo.pause(); } catch (e) {} lecteurVideo = null; }
-  if (lecteurYoutube) { commandeYoutube("pauseVideo"); lecteurYoutube = null; youtubeEnLecture = false; }
+  if (lecteursYT.length) { commandeYoutube("pauseVideo"); lecteursYT = []; youtubeEnLecture = false; }
+  vitesseLecture = 1;
+  $("vitesse-badge").classList.remove("visible");
   $("video-zone").innerHTML = "";
-  $("video-zone").classList.remove("visible", "cache");
+  $("video-zone").classList.remove("visible", "cache", "double");
   $("ecran-epreuve").classList.remove("epreuve-video");
   $("vinyle").classList.add("pause");
+  $("vinyle2").classList.add("pause");
+  $("vinyle").style.animationDuration = "";
+  $("vinyle2").style.animationDuration = "";
   urlsARevoquer.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
   urlsARevoquer = [];
+}
+
+/* ---------------------------------------------------------------- Bonus « le public chante » 🎤 */
+
+function bonusPublic(equipe) {
+  if (!CONFIG.equipes[equipe]) return;
+  etat.scores[equipe] += 1;
+  sons.publicChante();
+  pointsFlottants("+1", equipe);
+  const toast = $("public-chante");
+  $("public-chante-texte").textContent = "LE PUBLIC CHANTE ! +1 " + CONFIG.equipes[equipe].icone;
+  toast.classList.remove("visible");
+  void toast.offsetWidth; // relance l'animation
+  toast.classList.add("visible");
+  setTimeout(() => toast.classList.remove("visible"), 2000);
+  sauvegarder();
+  rafraichirBandeau();
 }
 
 /* ---------------------------------------------------------------- Victoire */
@@ -963,7 +1047,10 @@ function envoyerEtat() {
       indice: carteEnCours.contenu.indice || "",
       secret: carteEnCours.contenu.secret || "",
       musique: !!carteEnCours.contenu.musique,
-      media: !!(carteEnCours.contenu.musique || carteEnCours.contenu.youtube || carteEnCours.contenu.video),
+      media: !!(carteEnCours.contenu.musique || carteEnCours.contenu.musique2 ||
+                carteEnCours.contenu.youtube || carteEnCours.contenu.youtube2 ||
+                carteEnCours.contenu.video),
+      vitesse: vitesseLecture,
       aDcc: !!carteEnCours.aDcc,
       dccMode: carteEnCours.dccMode || null,
       dccPoints: carteEnCours.aDcc ? baremeDcc(carteEnCours.carte) : null,
@@ -1003,6 +1090,8 @@ function executerCommande(d) {
     case "defiSurprise": toggleDefiSurprise(); return;
     case "dcc": choisirModeDcc(d.mode); return;
     case "fichierPC": demanderFichierPC(d); return;
+    case "vitesse": appliquerVitesse(d.taux); return;
+    case "bonusPublic": bonusPublic(d.equipe); return;
   }
   switch (d.cmd) {
     case "demarrer":  if (ecranActuel === "titre") { montrerEcran("mur"); sons.jingle(); } break;
@@ -1038,7 +1127,7 @@ function ctxSiPossible() {
 const CLE_CARTES = "pve-cartes-v1";     // deck actif (complet), survit au rechargement
 const CLE_JEUX = "pve-jeux-v1";         // jeux nommés : { nom: { date, cartes } }
 const CLE_JEU_ACTIF = "pve-jeu-actif";
-const CHAMPS_EDITABLES = ["texte", "consigne", "reponse", "indice", "secret", "musique", "youtube", "video", "propositions"];
+const CHAMPS_EDITABLES = ["texte", "consigne", "reponse", "indice", "secret", "musique", "musique2", "youtube", "youtube2", "video", "propositions"];
 const CHAMPS_CARTE = ["type", "points", "perte", "timer", "effet", "valeur"];
 let CARTES_ORIGINALES = null; // instantané du cartes.js d'origine
 let jeuActif = null;
@@ -1308,9 +1397,11 @@ function resoudreMedia(valeur) {
 function demanderFichierPC(d) {
   if (!d || !d.n || !d.cible || !d.champ) return;
   demandeFichier = d;
+  const estAudio = String(d.champ).startsWith("musique");
   $("fichier-detail").textContent =
-    "Carte " + d.n + " (" + d.cible + ") — " + (d.champ === "musique" ? "fichier audio 🎵" : "fichier vidéo 🎬");
-  $("fichier-input").accept = d.champ === "musique" ? "audio/*" : "video/*";
+    "Carte " + d.n + " (" + d.cible + ") — " + (estAudio ? "fichier audio 🎵" : "fichier vidéo 🎬") +
+    (d.champ === "musique2" ? " (musique n°2)" : "");
+  $("fichier-input").accept = estAudio ? "audio/*" : "video/*";
   $("fichier-overlay").classList.add("visible");
 }
 

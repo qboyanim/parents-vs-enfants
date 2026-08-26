@@ -36,6 +36,12 @@
    Le type "video" est fait pour les épreuves Just Dance : mets un lien
    YouTube de Just Dance dans le champ youtube et fais danser tout le monde !
 
+   Le type "doubleblindtest" joue DEUX musiques EN MÊME TEMPS :
+   remplis musique + musique2 (fichiers) ou youtube + youtube2 (liens).
+   Il faut trouver les deux titres ! Pendant tout blind test, la télécommande
+   permet de passer la musique au ralenti ou en accéléré (3 vitesses chacun),
+   et d'accorder un bonus « 🎤 le public chante » (+1 point).
+
    DUO / CARRÉ / CASH : ajoute un champ "propositions" à une question :
      propositions: ["la BONNE réponse", "piège 1", "piège 2", "piège 3"]
    (la PREMIÈRE est toujours la bonne ; l'affichage est mélangé).
@@ -294,12 +300,16 @@ const CONFIG = {
     },
 
     19: {
-      type: "blindtest", points: 3, timer: 30,
+      type: "doubleblindtest", points: 3, timer: 45,
       commun: {
-        texte: "BLIND TEST GÉANT ! Les deux équipes jouent en même temps !",
-        consigne: "Première équipe qui trouve le titre ET l'artiste !",
-        reponse: "We Will Rock You — Queen",
-        // musique: "musiques/carte19-commun.mp3",
+        texte: "DOUBLE BLIND TEST ! 🎵🎵",
+        consigne: "DEUX musiques jouent EN MÊME TEMPS… Trouvez les deux titres ! Les deux équipes jouent.",
+        reponse: "Musique 1 : We Will Rock You — Queen • Musique 2 : Happy — Pharrell (à personnaliser !)",
+        // Mets tes deux musiques (fichiers, boutons 📂 PC, ou liens YouTube) :
+        // musique: "musiques/carte19-musique1.mp3",
+        // musique2: "musiques/carte19-musique2.mp3",
+        // youtube: "",
+        // youtube2: "",
       },
     },
 

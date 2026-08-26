@@ -327,9 +327,11 @@ function choisirOnglet(o) {
 const NOMS = { enfants: "ENFANTS", adultes: "PARENTS" };
 const TYPES = {
   question: "❓ QUESTION", triche: "😈 QUESTION DIABOLIQUE", blindtest: "🎵 BLIND TEST",
+  doubleblindtest: "🎶 DOUBLE BLIND TEST",
   mime: "🎭 MIME", defi: "💪 DÉFI", bonus: "🎁 BONUS", malus: "💣 MALUS",
   piege: "💀 CARTE PIÈGE", video: "🕺 ÉPREUVE VIDÉO",
 };
+const VITESSES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2];
 
 function rendre() {
   if (!etat) return;
@@ -420,6 +422,28 @@ function rendre() {
   if (c.media)   outils.appendChild(bouton("▶⏸", "violet", () => envoyer("musique")));
   if (outils.children.length) z.appendChild(outils);
 
+  // Vitesse de lecture (ralenti / accéléré) + bonus « le public chante »
+  if (c.media) {
+    const vitesses = document.createElement("div");
+    vitesses.className = "rangee";
+    vitesses.style.marginTop = "8px";
+    for (const v of VITESSES) {
+      const label = v < 1 ? "🐌\n×" + v : (v === 1 ? "▶\n×1" : "⚡\n×" + v);
+      const b = bouton(label, v === (c.vitesse || 1) ? "violet" : "", () => envoyer("vitesse", { taux: v }));
+      b.style.cssText = "font-size:12px;padding:8px 2px;white-space:pre-line;line-height:1.3";
+      if (v === (c.vitesse || 1)) b.style.outline = "2px solid #ffd24a";
+      vitesses.appendChild(b);
+    }
+    z.appendChild(vitesses);
+
+    const chante = document.createElement("div");
+    chante.className = "rangee";
+    chante.style.marginTop = "8px";
+    chante.appendChild(bouton("🎤 Public chante ! +1 🧒", "bleu", () => envoyer("bonusPublic", { equipe: "enfants" })));
+    chante.appendChild(bouton("🎤 Public chante ! +1 🧑", "rose", () => envoyer("bonusPublic", { equipe: "adultes" })));
+    z.appendChild(chante);
+  }
+
   const val = document.createElement("div");
   val.className = "rangee grosse";
   val.style.marginTop = "8px";
@@ -457,9 +481,11 @@ const CHAMPS = [
   ["reponse",  "Réponse (touche R)", "textarea"],
   ["indice",   "Indice de triche (touche I)", "input"],
   ["secret",   "Secret du mime (nom caché)", "input"],
-  ["youtube",  "Lien YouTube (Just Dance…)", "input"],
-  ["musique",  "Fichier musique (musiques/…mp3)", "input"],
-  ["video",    "Fichier vidéo (videos/…mp4)", "input"],
+  ["youtube",  "Lien YouTube (musique 1 / vidéo)", "input"],
+  ["youtube2", "Lien YouTube — musique 2 (double blind test)", "input"],
+  ["musique",  "Fichier musique 1 (ou 📂 PC)", "input"],
+  ["musique2", "Fichier musique 2 (double blind test)", "input"],
+  ["video",    "Fichier vidéo (ou 📂 PC)", "input"],
 ];
 
 document.querySelectorAll("#filtres button").forEach(b => {
@@ -569,8 +595,10 @@ function rendreCartes() {
       ["texte", "consigne", "reponse"].includes(cle) ||
       (cle === "indice" && carte.type === "triche") ||
       (cle === "secret" && carte.type === "mime") ||
-      (cle === "youtube" && ["video", "blindtest"].includes(carte.type)) ||
-      (cle === "musique" && carte.type === "blindtest") ||
+      (cle === "youtube" && ["video", "blindtest", "doubleblindtest"].includes(carte.type)) ||
+      (cle === "youtube2" && carte.type === "doubleblindtest") ||
+      (cle === "musique" && ["blindtest", "doubleblindtest"].includes(carte.type)) ||
+      (cle === "musique2" && carte.type === "doubleblindtest") ||
       (cle === "video" && carte.type === "video")
     );
     for (const [cle, label, tag] of champsUtiles) {
@@ -578,7 +606,7 @@ function rendreCartes() {
       const champ = document.createElement(tag);
       champ.value = variante[cle] || "";
       champ.dataset.cle = cle;
-      if (cle === "musique" || cle === "video") {
+      if (["musique", "musique2", "video"].includes(cle)) {
         const rangee = document.createElement("div");
         rangee.style.cssText = "display:flex;gap:8px";
         champ.style.flex = "1";
