@@ -644,6 +644,9 @@ function pointsFlottants(txt, equipe) {
 }
 
 function retourMur(changerTour) {
+  sequenceBonus.enCours = false;
+  annulerMinuteursBonus();
+  $("bonus-scene").classList.remove("visible", "entre");
   arreterTimer();
   stopperMusique();
   $("indice").classList.remove("visible");
@@ -1282,44 +1285,142 @@ function ecranStats() {
     .sort(() => Math.random() - 0.5)
     .slice(0, 5);
 
-  const debut = 1200 + lignes.length * 400 + 400;
-  applicables.forEach((x, i) => {
-    const el = document.createElement("div");
-    el.className = "bonus-fin";
-    const cible = x.cible;
-    const nom = cible === "deux" ? "LES DEUX ÉQUIPES" : CONFIG.equipes[cible].nom;
-    const classePts = cible === "deux" ? "d" : (cible === "enfants" ? "e" : "a");
-    el.innerHTML =
-      `<span class="bf-icone">${x.b.icone}</span>
-       <span><span class="bf-titre">${x.b.titre}</span> — ${nom}<br>
-       <span style="font-size:1.6vh;color:rgba(255,255,255,.6)">${x.b.detail}</span></span>
-       <span class="bf-pts ${classePts}">+${x.b.points}</span>`;
-    liste.appendChild(el);
-    setTimeout(() => {
-      if (jeton !== statsJeton) return;
-      el.classList.add("montre");
-      // Les points sont attribués en direct
-      if (cible === "deux") {
-        etat.scores.enfants += x.b.points; etat.scores.adultes += x.b.points;
-      } else {
-        etat.scores[cible] += x.b.points;
-      }
-      sauvegarder();
-      rafraichirBandeau();
-      sons.points();
-    }, debut + i * 1300);
-  });
-
   if (!applicables.length) {
     liste.innerHTML = "<div style='font-size:2vh;color:rgba(255,255,255,.6)'>Pas de bonus cette fois !</div>";
   }
-  setTimeout(() => {
-    if (jeton !== statsJeton) return;
-    $("stats-suite").textContent = "▶ ESPACE (ou le bouton du téléphone) pour le PODIUM";
-    envoyerEtat();
-  }, debut + applicables.length * 1300 + 400);
 
   sons.jingle();
+  // Chaque bonus est ensuite révélé en grand, avec une roulette entre les équipes
+  sequenceBonus = { liste: applicables, index: 0, jeton, enCours: applicables.length > 0 };
+  planifierBonus(() => jouerBonusSuivant(), 1200 + lignes.length * 400 + 600);
+  if (!applicables.length) terminerBonus();
+}
+
+/* ------- Révélation en grand des bonus, avec roulette 🧒 ↔ 🧑 ------- */
+
+let sequenceBonus = { liste: [], index: 0, jeton: 0, enCours: false };
+let minuteursBonus = [];
+
+function planifierBonus(fn, delai) {
+  const t = setTimeout(fn, delai);
+  minuteursBonus.push(t);
+  return t;
+}
+function annulerMinuteursBonus() {
+  minuteursBonus.forEach(clearTimeout);
+  minuteursBonus = [];
+}
+
+function attribuerBonus(x) {
+  if (x.attribue) return;
+  x.attribue = true;
+  if (x.cible === "deux") {
+    etat.scores.enfants += x.b.points;
+    etat.scores.adultes += x.b.points;
+  } else {
+    etat.scores[x.cible] += x.b.points;
+  }
+  sauvegarder();
+  rafraichirBandeau();
+}
+
+// Ajoute la ligne récapitulative dans la colonne de droite
+function ajouterRecapBonus(x) {
+  const nom = x.cible === "deux" ? "LES DEUX ÉQUIPES" : CONFIG.equipes[x.cible].nom;
+  const classePts = x.cible === "deux" ? "d" : (x.cible === "enfants" ? "e" : "a");
+  const el = document.createElement("div");
+  el.className = "bonus-fin montre";
+  el.innerHTML =
+    `<span class="bf-icone">${x.b.icone}</span>
+     <span><span class="bf-titre">${x.b.titre}</span> — ${nom}<br>
+     <span style="font-size:1.6vh;color:rgba(255,255,255,.6)">${x.b.detail}</span></span>
+     <span class="bf-pts ${classePts}">+${x.b.points}</span>`;
+  $("liste-bonus-fin").appendChild(el);
+}
+
+function jouerBonusSuivant() {
+  const s = sequenceBonus;
+  if (s.jeton !== statsJeton) return;
+  if (s.index >= s.liste.length) { terminerBonus(); return; }
+  const x = s.liste[s.index];
+
+  const scene = $("bonus-scene");
+  scene.classList.add("visible", "entre");
+  $("bs-compte").textContent = "BONUS " + (s.index + 1) + " / " + s.liste.length;
+  $("bs-icone").textContent = x.b.icone;
+  $("bs-titre").textContent = x.b.titre;
+  $("bs-detail").textContent = x.b.detail;
+  const pts = $("bs-points");
+  pts.className = "bs-points";
+  pts.textContent = "";
+  const eE = $("bs-enfants"), eA = $("bs-adultes");
+  [eE, eA].forEach(el => el.classList.remove("actif", "gagne", "perd"));
+  sons.secret();
+  envoyerEtat();
+
+  // --- Roulette : le projecteur saute d'une équipe à l'autre en ralentissant
+  const ETAPES = 15;
+  let cumul = 700, delai = 50, courant = "adultes";
+  for (let k = 0; k < ETAPES; k++) {
+    planifierBonus(() => {
+      courant = courant === "enfants" ? "adultes" : "enfants";
+      eE.classList.toggle("actif", courant === "enfants");
+      eA.classList.toggle("actif", courant === "adultes");
+      sons.tic();
+    }, cumul);
+    cumul += delai;
+    delai *= 1.1;
+  }
+
+  // --- Verrouillage sur le gagnant
+  planifierBonus(() => {
+    if (s.jeton !== statsJeton) return;
+    const deux = x.cible === "deux";
+    eE.classList.toggle("actif", deux || x.cible === "enfants");
+    eA.classList.toggle("actif", deux || x.cible === "adultes");
+    eE.classList.toggle("gagne", deux || x.cible === "enfants");
+    eA.classList.toggle("gagne", deux || x.cible === "adultes");
+    if (!deux) {
+      (x.cible === "enfants" ? eA : eE).classList.add("perd");
+      (x.cible === "enfants" ? eA : eE).classList.remove("actif");
+    }
+    pts.textContent = "+" + x.b.points + (deux ? " POUR TOUT LE MONDE !" : "");
+    pts.classList.add("montre", deux ? "d" : (x.cible === "enfants" ? "e" : "a"));
+    attribuerBonus(x);
+    ajouterRecapBonus(x);
+    sons.bon();
+    pluieConfettis(10, 45, () => sequenceBonus.enCours);
+  }, cumul + 150);
+
+  // --- Bonus suivant
+  planifierBonus(() => {
+    scene.classList.remove("entre");
+    void scene.offsetWidth; // relance l'animation d'entrée
+    s.index++;
+    jouerBonusSuivant();
+  }, cumul + 1900);
+}
+
+// Passe tout de suite à la fin (touche ESPACE ou bouton du téléphone)
+function sauterBonus() {
+  const s = sequenceBonus;
+  if (!s.enCours) return;
+  annulerMinuteursBonus();
+  for (let i = s.index; i < s.liste.length; i++) {
+    const x = s.liste[i];
+    if (!x.attribue) { attribuerBonus(x); ajouterRecapBonus(x); }
+  }
+  s.index = s.liste.length;
+  terminerBonus();
+}
+
+function terminerBonus() {
+  sequenceBonus.enCours = false;
+  annulerMinuteursBonus();
+  $("bonus-scene").classList.remove("visible", "entre");
+  $("stats-suite").textContent = "▶ ESPACE (ou le bouton du téléphone) pour le PODIUM";
+  sons.jingle();
+  envoyerEtat();
 }
 
 /* Grand final : podium qui sort du sol et compteurs à défilement */
@@ -1328,6 +1429,9 @@ let victoireJeton = 0;   // annule proprement une animation en cours
 
 function ecranVictoire() {
   const jeton = ++victoireJeton;
+  sequenceBonus.enCours = false;
+  annulerMinuteursBonus();
+  $("bonus-scene").classList.remove("visible", "entre");
   const e = etat.scores.enfants, a = etat.scores.adultes;
   montrerEcran("victoire");
 
@@ -1486,10 +1590,12 @@ document.addEventListener("keydown", (e) => {
   if (k === "s") { toggleDefiSurprise(); return; }
   if (defiSurprise.actif) return; // le reste du clavier est gelé pendant le défi
 
-  // Écran statistiques : ESPACE enchaîne sur le podium
+  // Écran statistiques : ESPACE passe les bonus puis enchaîne sur le podium
   if (ecranActuel === "stats") {
-    if (e.key === " " || e.key === "Enter") { e.preventDefault(); ecranVictoire(); }
-    else if (e.key === "Escape") retourMur(false);
+    if (e.key === " " || e.key === "Enter") {
+      e.preventDefault();
+      if (sequenceBonus.enCours) sauterBonus(); else ecranVictoire();
+    } else if (e.key === "Escape") retourMur(false);
     return;
   }
 
@@ -1701,6 +1807,7 @@ function envoyerEtat() {
     timerRestant, timerTotal,
     timerActif: !!timerInterval,
     defiSurprise: { actif: defiSurprise.actif, phase: defiSurprise.phase },
+    bonusEnCours: sequenceBonus.enCours,
     bruitometre: {
       actif: bruitometre.actif,
       phase: bruitometre.phase,
@@ -1800,7 +1907,7 @@ function executerCommande(d) {
     case "tour":       etat.tour = etat.tour === "enfants" ? "adultes" : "enfants"; sauvegarder(); rafraichirBandeau(); break;
     case "score":      ajusterScore(d.equipe, d.delta); break;
     case "victoire":   ecranStats(); break;
-    case "podium":     ecranVictoire(); break;
+    case "podium":     if (sequenceBonus.enCours) sauterBonus(); else ecranVictoire(); break;
     case "image":      basculerImage(); break;
     case "joker":      ajusterJoker(d.equipe, +d.delta || 0); break;
     case "reset":      resetSansConfirmation(); break;

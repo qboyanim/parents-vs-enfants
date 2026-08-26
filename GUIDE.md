@@ -85,10 +85,16 @@ dernière carte), un écran de stats s'affiche avant le podium :
   réussites, nombre de CASH tentés… ;
 - **5 bonus de fin de partie** tirés au hasard parmi 16 (La Remontada, Série en
   or, Oscar du mime, Tête brûlée, Prix de la poisse, Coup de pouce à l'équipe
-  en retard, Esprit d'équipe…). Les points sont **ajoutés automatiquement** au
-  fur et à mesure de leur révélation — de quoi renverser une partie !
+  en retard, Esprit d'équipe…).
 
-Puis `ESPACE` (ou « 🏆 Voir le podium » sur le téléphone) lance le podium.
+Chaque bonus est **révélé en grand, l'un après l'autre** : le titre s'affiche,
+puis le projecteur **saute d'une équipe à l'autre en ralentissant** (roulement
+de suspense) avant de se figer sur la gagnante, qui s'illumine pendant que
+l'autre s'éteint. Les points tombent en gros et sont **ajoutés
+automatiquement** — de quoi renverser une partie !
+
+`ESPACE` (ou le bouton du téléphone) **passe les bonus** si tu es pressé (les
+points restants sont quand même attribués), puis lance le **podium**.
 
 ## 🎯 Duo / Carré / Cash
 

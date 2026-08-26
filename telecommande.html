@@ -425,7 +425,9 @@ function rendre() {
     return;
   }
   if (etat.ecran === "stats") {
-    z.appendChild(bouton("🏆 VOIR LE PODIUM", "or", () => envoyer("podium"), "width:100%;padding:22px;font-size:19px"));
+    z.appendChild(bouton(
+      etat.bonusEnCours ? "⏭ PASSER LES BONUS" : "🏆 VOIR LE PODIUM",
+      "or", () => envoyer("podium"), "width:100%;padding:22px;font-size:19px"));
     z.appendChild(bouton("⬅ Revenir au mur", "", () => envoyer("retour"), "width:100%;margin-top:8px"));
     return;
   }

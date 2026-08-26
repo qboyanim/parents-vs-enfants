@@ -625,6 +625,70 @@ html, body {
   min-height: 3.5vh;
 }
 
+/* ====== RÉVÉLATION EN GRAND D'UN BONUS DE FIN ====== */
+#bonus-scene {
+  position: fixed; inset: 0; z-index: 90;
+  display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  background: radial-gradient(circle, rgba(45, 12, 100, .96), rgba(8, 0, 25, .98));
+}
+#bonus-scene.visible { display: flex; }
+.bs-carte {
+  display: flex; flex-direction: column; align-items: center; gap: 1.4vh;
+  text-align: center; padding: 0 6vw;
+}
+#bonus-scene.entre .bs-carte { animation: bs-entre .5s cubic-bezier(.3, 1.5, .5, 1); }
+@keyframes bs-entre {
+  from { transform: scale(.6) translateY(4vh); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+.bs-compte {
+  font-family: var(--font-titre); font-size: 2.4vh;
+  color: rgba(255, 255, 255, .5); letter-spacing: .25em;
+}
+.bs-icone { font-size: 13vh; line-height: 1; animation: flotte 2.4s ease-in-out infinite; }
+.bs-titre {
+  font-family: var(--font-titre); font-size: 7.5vh; line-height: 1.05;
+  color: var(--or); text-shadow: 0 0 45px rgba(255, 210, 74, .7);
+}
+.bs-detail { font-size: 2.8vh; color: rgba(255, 255, 255, .8); }
+.bs-roulette { display: flex; gap: 4vw; margin-top: 1.5vh; }
+.bs-equipe {
+  font-family: var(--font-titre); font-size: 4.5vh;
+  padding: 1.8vh 3.5vw; border-radius: 2.5vh;
+  border: .5vh solid rgba(255, 255, 255, .18);
+  background: rgba(0, 0, 0, .45);
+  color: rgba(255, 255, 255, .3);
+  transition: transform .1s, opacity .3s, filter .3s;
+}
+.bs-equipe.actif { transform: scale(1.12); }
+#bs-enfants.actif { color: var(--bleu-enfants); border-color: var(--bleu-enfants); box-shadow: 0 0 45px rgba(0, 217, 255, .7); }
+#bs-adultes.actif { color: var(--rose-parents); border-color: var(--rose-parents); box-shadow: 0 0 45px rgba(255, 46, 136, .7); }
+.bs-equipe.gagne { animation: bs-gagne .8s cubic-bezier(.3, 1.7, .5, 1) forwards; }
+@keyframes bs-gagne {
+  0%   { transform: scale(1.12); }
+  35%  { transform: scale(1.4) rotate(-2deg); }
+  100% { transform: scale(1.22) rotate(0); }
+}
+.bs-equipe.perd { opacity: .2; filter: grayscale(1); transform: scale(.92); }
+.bs-points {
+  font-family: var(--font-titre); font-size: 8.5vh; line-height: 1;
+  opacity: 0; transform: scale(0); margin-top: .5vh;
+}
+.bs-points.montre { opacity: 1; transform: scale(1); animation: bs-points-pop .6s cubic-bezier(.3, 1.7, .5, 1); }
+@keyframes bs-points-pop {
+  0%   { opacity: 0; transform: scale(0) rotate(-12deg); }
+  55%  { opacity: 1; }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+.bs-points.e { color: var(--bleu-enfants); text-shadow: 0 0 40px rgba(0,217,255,.7); }
+.bs-points.a { color: var(--rose-parents); text-shadow: 0 0 40px rgba(255,46,136,.7); }
+.bs-points.d { color: var(--or); text-shadow: 0 0 40px rgba(255,210,74,.7); }
+.bs-passer {
+  position: fixed; bottom: 2.5vh; left: 50%; transform: translateX(-50%);
+  font-size: 2vh; color: rgba(255, 255, 255, .45);
+}
+
 /* ====== ÉCRAN VICTOIRE : LE PODIUM ====== */
 #ecran-victoire {
   justify-content: flex-end; gap: 0; z-index: 70;
@@ -1136,6 +1200,22 @@ html, body {
   <div id="stats-suite"></div>
 </div>
 
+<!-- RÉVÉLATION D'UN BONUS EN GRAND -->
+<div id="bonus-scene">
+  <div class="bs-carte">
+    <div class="bs-compte" id="bs-compte"></div>
+    <div class="bs-icone" id="bs-icone"></div>
+    <div class="bs-titre" id="bs-titre"></div>
+    <div class="bs-detail" id="bs-detail"></div>
+    <div class="bs-roulette">
+      <div class="bs-equipe" id="bs-enfants">🧒 ENFANTS</div>
+      <div class="bs-equipe" id="bs-adultes">🧑 PARENTS</div>
+    </div>
+    <div class="bs-points" id="bs-points"></div>
+  </div>
+  <div class="bs-passer">⏭ ESPACE (ou le bouton du téléphone) pour passer</div>
+</div>
+
 <div id="ecran-victoire" class="ecran">
   <div id="victoire-entete">🏆 ET LE GAGNANT EST… 🏆</div>
   <div id="podium">
@@ -1290,7 +1370,7 @@ html, body {
 
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <!-- Le ?v= force le navigateur à recharger les fichiers après une mise à jour -->
-<script src="cartes.js?v=15"></script>
-<script src="app.js?v=15"></script>
+<script src="cartes.js?v=16"></script>
+<script src="app.js?v=16"></script>
 </body>
 </html>
