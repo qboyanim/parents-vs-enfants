@@ -105,6 +105,12 @@ const sons = {
     for (let i = 0; i < 14; i++) bruit(i * .05 + Math.random() * .02, .04, .18, 3000 + Math.random() * 3000);
     [659, 784, 988, 1319].forEach((f, i) => bip(f, .1 + i * .09, .25, "triangle", .2));
   },
+  rideau() {
+    // Frou-frou du velours qui s'ouvre + carillon d'apparition
+    bruit(0, 1.4, .16, 420, "lowpass");
+    bruit(.15, 1.1, .1, 900, "bandpass");
+    [784, 988, 1175, 1568].forEach((f, i) => bip(f, .9 + i * .1, .35, "triangle", .16));
+  },
   jingle()   { [440, 554, 659, 880].forEach((f, i) => bip(f, i * .09, .25, "square", .12)); },
   bon()      { [523, 659, 784, 1047].forEach((f, i) => bip(f, i * .1, .3, "triangle", .22)); },
   mauvais()  { bip(220, 0, .3, "sawtooth", .2); bip(155, .25, .5, "sawtooth", .2); },
@@ -605,10 +611,10 @@ function basculerReponse() {
   const visible = rep.classList.toggle("visible");
   if (visible) {
     sons.reveal();
-    // Marque la bonne proposition (duo/carré) et lève tous les rideaux
+    // Marque la bonne proposition (duo/carré) et ouvre tous les rideaux
     document.querySelectorAll(".dcc-prop[data-bonne]").forEach(el => el.classList.add("bonne"));
-    $("video-zone").classList.remove("cache");
-    document.querySelectorAll(".video-cellule.cache").forEach(c => c.classList.remove("cache"));
+    ouvrirRideau($("video-zone"));
+    document.querySelectorAll(".video-cellule.cache").forEach(c => ouvrirRideau(c));
     if (carteEnCours && carteEnCours.rideaux) carteEnCours.rideaux = carteEnCours.rideaux.map(() => false);
     envoyerEtat();
   }
@@ -637,8 +643,23 @@ function creerIframeYT(id) {
 function creerRideau() {
   const rideau = document.createElement("div");
   rideau.className = "video-rideau";
-  rideau.innerHTML = "🎵 ❓ 🎵<div class='note'>Écoutez bien… l'image est cachée !</div>";
+  rideau.innerHTML =
+    `<div class="rideau-pan gauche"></div>
+     <div class="rideau-pan droit"></div>
+     <div class="rideau-valance"></div>
+     <div class="rideau-texte">🎵 ❓ 🎵<div class="note">Écoutez bien… l'image est cachée !</div></div>`;
   return rideau;
+}
+
+// Ouverture théâtrale : les pans se froncent, le lambrequin remonte,
+// puis le rideau disparaît du DOM visuel (retrait de .cache)
+function ouvrirRideau(porteur) {
+  if (!porteur || !porteur.classList.contains("cache")) return;
+  const rideau = porteur.querySelector(".video-rideau");
+  if (!rideau || rideau.classList.contains("ouvre")) return;
+  rideau.classList.add("ouvre");
+  sons.rideau();
+  setTimeout(() => porteur.classList.remove("cache"), 1800);
 }
 
 function montrerVideo(contenu, typeCarte, numero) {
@@ -722,13 +743,11 @@ function commandeYoutube(fonction, args) {
 function leverRideau(i) {
   const zone = $("video-zone");
   if (zone.classList.contains("double")) {
-    const cellule = zone.querySelectorAll(".video-cellule")[i - 1];
-    if (cellule) cellule.classList.remove("cache");
+    ouvrirRideau(zone.querySelectorAll(".video-cellule")[i - 1]);
   } else {
-    zone.classList.remove("cache");
+    ouvrirRideau(zone);
   }
   if (carteEnCours && carteEnCours.rideaux) carteEnCours.rideaux[i - 1] = false;
-  sons.reveal();
   envoyerEtat();
 }
 

@@ -658,21 +658,88 @@ html, body {
   font-size: 1.9vh; color: rgba(255,255,255,.5);
 }
 
-/* ====== RIDEAU BLIND TEST (cache le clip YouTube) ====== */
+/* ====== RIDEAU DE THÉÂTRE (cache le clip du blind test) ====== */
 .video-rideau {
   position: absolute; inset: 0;
   display: none;
   align-items: center; justify-content: center; flex-direction: column; gap: 1vh;
-  background:
-    repeating-linear-gradient(45deg, rgba(90, 27, 214, .95) 0 4vh, rgba(67, 22, 168, .95) 4vh 8vh);
+  overflow: hidden;
   z-index: 2;
-  font-family: var(--font-titre); font-size: 7vh;
+  font-family: var(--font-titre); font-size: 6vh;
   cursor: pointer;
+  background-color: #30040a; /* fond de scène derrière les plis */
+  transition: background-color .9s ease .5s;
 }
-.video-rideau .note { font-family: var(--font-texte); font-size: 2.2vh; color: rgba(255,255,255,.75); font-weight: 700; }
 #video-zone { position: relative; }
 #video-zone.cache > .video-rideau,
 .video-cellule.cache .video-rideau { display: flex; }
+
+/* Les deux pans de velours rouge, plissés */
+.rideau-pan {
+  position: absolute; top: 0; bottom: 0; width: 51%;
+  z-index: 1;
+  background:
+    linear-gradient(to bottom, rgba(0, 0, 0, .35), transparent 18%, transparent 70%, rgba(0, 0, 0, .45)),
+    repeating-linear-gradient(90deg,
+      #6f0011 0, #a3001b 1.6vh, #d02136 3.2vh, #a3001b 4.8vh, #7c0013 6.4vh);
+  box-shadow: inset 0 0 6vh rgba(0, 0, 0, .35);
+}
+.rideau-pan.gauche { left: 0;  transform-origin: left center;  animation: rideau-balance-g 4s ease-in-out infinite; }
+.rideau-pan.droit  { right: 0; transform-origin: right center; animation: rideau-balance-d 4s ease-in-out infinite; }
+@keyframes rideau-balance-g { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(.4%) scaleX(1.008); } }
+@keyframes rideau-balance-d { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(-.4%) scaleX(1.008); } }
+
+/* Lambrequin du haut avec festons et galon doré */
+.rideau-valance {
+  position: absolute; top: 0; left: -1%; right: -1%; height: 15%;
+  z-index: 3;
+  background:
+    linear-gradient(to bottom, rgba(255, 255, 255, .12), transparent 40%),
+    repeating-linear-gradient(90deg,
+      #7c0013 0, #b10020 2vh, #d02136 4vh, #b10020 6vh, #7c0013 8vh);
+  border-bottom: .5vh solid var(--or);
+  box-shadow: 0 .5vh 2vh rgba(0, 0, 0, .5);
+}
+.rideau-valance::after {
+  content: '';
+  position: absolute; top: 100%; left: 0; right: 0; height: 55%;
+  background: radial-gradient(circle at 50% 0%, #8f0018 58%, rgba(255, 210, 74, .9) 60%, rgba(255, 210, 74, .9) 66%, transparent 68%);
+  background-size: 8% 200%;
+  background-position: top center;
+}
+
+/* Texte au centre du rideau */
+.rideau-texte {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 1vh;
+  text-shadow: 0 .5vh 1.5vh rgba(0, 0, 0, .7);
+}
+.rideau-texte .note {
+  font-family: var(--font-texte); font-size: 2.1vh;
+  color: var(--or); font-weight: 700;
+  background: rgba(0, 0, 0, .35);
+  padding: .4vh 1.4vw; border-radius: 2vh;
+}
+
+/* 🎭 OUVERTURE : les pans se froncent vers les côtés, le lambrequin remonte */
+.video-rideau.ouvre { cursor: default; }
+.video-rideau.ouvre .rideau-pan.gauche { animation: rideau-ouvre-g 1.7s cubic-bezier(.65, 0, .35, 1) forwards; }
+.video-rideau.ouvre .rideau-pan.droit  { animation: rideau-ouvre-d 1.7s cubic-bezier(.65, 0, .35, 1) forwards; }
+@keyframes rideau-ouvre-g {
+  0%   { transform: translateX(0) scaleX(1); }
+  12%  { transform: translateX(1.2%) scaleX(1.03); }  /* petit élan avant l'ouverture */
+  100% { transform: translateX(-1%) scaleX(.09); }
+}
+@keyframes rideau-ouvre-d {
+  0%   { transform: translateX(0) scaleX(1); }
+  12%  { transform: translateX(-1.2%) scaleX(1.03); }
+  100% { transform: translateX(1%) scaleX(.09); }
+}
+.video-rideau.ouvre .rideau-valance { animation: valance-remonte 1s ease .7s forwards; }
+@keyframes valance-remonte { to { transform: translateY(-130%); } }
+.video-rideau.ouvre .rideau-texte { animation: rideau-texte-fond .4s ease forwards; }
+@keyframes rideau-texte-fond { to { opacity: 0; transform: scale(.8); } }
+.video-rideau.ouvre { background-color: transparent; }
 
 /* Double blind test : deux lecteurs côte à côte */
 #video-zone.double {
