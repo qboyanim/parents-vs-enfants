@@ -47,6 +47,12 @@ button:disabled { opacity: .35; }
 }
 #statut { text-align: center; font-size: 14px; color: rgba(255,255,255,.7); min-height: 20px; }
 
+/* --- Onglets --- */
+#onglets { display: none; gap: 8px; margin-bottom: 12px; }
+#onglets.actif { display: flex; }
+#onglets button { flex: 1; background: #22183a; font-size: 15px; padding: 12px; }
+#onglets button.choisi { background: #5a1bd6; }
+
 /* --- Pilotage --- */
 #pilotage { display: none; flex-direction: column; gap: 12px; }
 #pilotage.actif { display: flex; }
@@ -68,7 +74,7 @@ button:disabled { opacity: .35; }
 
 #tour-bar {
   text-align: center; padding: 10px; border-radius: 12px;
-  background: rgba(0,0,0,.35); font-weight: 700; font-size: 15px;
+  background: rgba(0,0,0,.35); font-weight: 700; font-size: 15px; width: 100%;
 }
 
 /* Mur */
@@ -101,6 +107,44 @@ button:disabled { opacity: .35; }
 #bas { display: flex; gap: 8px; margin-top: 6px; }
 #bas button { flex: 1; font-size: 13px; padding: 10px 6px; }
 #etat-connexion { text-align: center; font-size: 12px; color: rgba(255,255,255,.5); }
+
+/* --- Onglet Cartes (édition) --- */
+#parametres { display: none; flex-direction: column; gap: 10px; }
+#parametres.actif { display: flex; }
+#filtres { display: flex; gap: 6px; }
+#filtres button { flex: 1; font-size: 13px; padding: 10px 4px; background: #22183a; }
+#filtres button.choisi { background: #135a80; }
+.carte-ligne {
+  background: rgba(0,0,0,.35); border-radius: 12px; overflow: hidden;
+}
+.carte-ligne .entete {
+  width: 100%; text-align: left; background: transparent;
+  padding: 12px; font-size: 14px; border-radius: 0;
+  display: flex; gap: 8px; align-items: baseline;
+}
+.carte-ligne .entete .num { color: #ffd24a; font-weight: 900; min-width: 30px; }
+.carte-ligne .entete .apercu {
+  flex: 1; font-weight: 400; color: rgba(255,255,255,.75);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.editeur { display: none; padding: 0 12px 12px; flex-direction: column; gap: 8px; }
+.carte-ligne.ouverte .editeur { display: flex; }
+.editeur label { font-size: 12px; color: rgba(255,255,255,.6); margin-top: 4px; }
+.editeur input, .editeur textarea {
+  width: 100%; border-radius: 8px; border: 1px solid #3a3a55;
+  background: rgba(0,0,0,.45); color: #fff; padding: 9px;
+  font-family: inherit; font-size: 14px; outline: none;
+  user-select: text; -webkit-user-select: text;
+}
+.editeur textarea { min-height: 56px; resize: vertical; }
+.editeur .enregistrer { background: #1d7a3a; margin-top: 6px; }
+.notif {
+  position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+  background: #1d7a3a; padding: 10px 22px; border-radius: 20px;
+  font-weight: 700; font-size: 14px; z-index: 50;
+  animation: notif-in .25s ease;
+}
+@keyframes notif-in { from { opacity: 0; transform: translateX(-50%) translateY(10px); } }
 </style>
 </head>
 <body>
@@ -114,6 +158,12 @@ button:disabled { opacity: .35; }
   <input id="champ-code" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters">
   <button class="violet" id="btn-connecter" style="font-size:18px;padding:16px">📡 SE CONNECTER</button>
   <div id="statut"></div>
+</div>
+
+<!-- ONGLETS -->
+<div id="onglets">
+  <button id="ong-jeu" class="choisi">🎮 Jeu</button>
+  <button id="ong-cartes">🗂 Cartes</button>
 </div>
 
 <!-- PILOTAGE -->
@@ -150,68 +200,121 @@ button:disabled { opacity: .35; }
   <div id="etat-connexion"></div>
 </div>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<!-- ONGLET CARTES -->
+<div id="parametres">
+  <div style="font-size:13px;color:rgba(255,255,255,.65);line-height:1.4">
+    Modifie ici le contenu des cartes. Les changements sont appliqués immédiatement
+    sur le grand écran et <b>sauvegardés sur place</b> (ils survivent au rechargement).
+  </div>
+  <div id="filtres">
+    <button data-f="enfants" class="choisi">🧒 Enfants</button>
+    <button data-f="adultes">🧑 Parents</button>
+    <button data-f="commun">👥 Communes</button>
+  </div>
+  <div id="liste-cartes"></div>
+  <button class="bleu" id="btn-exporter" style="font-size:14px">⬇ Télécharger la sauvegarde (cartes.js)</button>
+  <button id="btn-retablir" style="font-size:13px">↩ Rétablir les cartes d'origine</button>
+</div>
+
+<script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script>
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-let peer = null, conn = null, etat = null;
-let confirmationReset = false;
+const BROKERS = ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt"];
 
-/* ------------------------------------------------ Connexion */
+let client = null, code = "", etat = null, catalogue = null;
+let connecte = false, brokerIdx = 0, timerEcranIntrouvable = null;
+let confirmationReset = false, confirmationCartes = false;
+let filtreActif = "enfants";
+let cartesOuvertes = new Set();
+
+/* ------------------------------------------------ Connexion MQTT */
 
 const dernierCode = localStorage.getItem("pve-tel-code") || "";
 $("champ-code").value = dernierCode;
-
 $("btn-connecter").addEventListener("click", connecter);
 $("champ-code").addEventListener("keydown", (e) => { if (e.key === "Enter") connecter(); });
 
+function topicBase() { return "pve-veillee/" + code; }
+
 function connecter() {
-  const code = $("champ-code").value.trim().toUpperCase();
+  code = $("champ-code").value.trim().toUpperCase();
   if (code.length !== 4) { $("statut").textContent = "Le code fait 4 caractères."; return; }
   localStorage.setItem("pve-tel-code", code);
-  $("statut").textContent = "⏳ Connexion à l'écran…";
+  $("statut").textContent = "⏳ Connexion…";
 
-  if (peer) { try { peer.destroy(); } catch (e) {} }
-  peer = new Peer();
-  peer.on("open", () => {
-    conn = peer.connect("pve-veillee-" + code, { reliable: true });
-    const echec = setTimeout(() => {
-      $("statut").textContent = "❌ Écran introuvable. Vérifie le code et que le grand écran est bien ouvert.";
+  if (client) { try { client.end(true); } catch (e) {} }
+  client = mqtt.connect(BROKERS[brokerIdx % BROKERS.length], {
+    clientId: "pve-tel-" + code + "-" + Math.random().toString(36).slice(2, 8),
+    clean: true,
+    connectTimeout: 8000,
+    reconnectPeriod: 4000,
+  });
+
+  let echecs = 0;
+  client.on("connect", () => {
+    echecs = 0;
+    client.subscribe([topicBase() + "/etat", topicBase() + "/cartes"]);
+    envoyer("hello");
+    // L'état "retenu" du grand écran doit arriver presque instantanément
+    clearTimeout(timerEcranIntrouvable);
+    timerEcranIntrouvable = setTimeout(() => {
+      if (!connecte) $("statut").textContent = "❌ Écran introuvable : vérifie le code, et que le grand écran est bien ouvert.";
     }, 8000);
-    conn.on("open", () => {
-      clearTimeout(echec);
-      $("connexion").style.display = "none";
-      $("pilotage").classList.add("actif");
-      $("etat-connexion").textContent = "📡 Connecté à l'écran (" + code + ")";
-    });
-    conn.on("data", (d) => { if (d && d.type === "etat") { etat = d; rendre(); } });
-    conn.on("close", perdu);
-    conn.on("error", perdu);
   });
-  peer.on("error", (err) => {
-    $("statut").textContent = "❌ Erreur réseau (" + err.type + "). Réessaie.";
+  client.on("message", (topic, payload) => {
+    let d; try { d = JSON.parse(payload.toString()); } catch (e) { return; }
+    if (topic.endsWith("/etat")) { etat = d; premiereConnexion(); rendre(); }
+    if (topic.endsWith("/cartes")) { catalogue = d; if ($("parametres").classList.contains("actif")) rendreCartes(); }
   });
+  client.on("close", () => {
+    if (connecte) $("etat-connexion").textContent = "⏳ Reconnexion…";
+    echecs++;
+    if (echecs >= 3) { echecs = 0; brokerIdx++; connecter(); }
+  });
+
 }
 
-function perdu() {
-  $("pilotage").classList.remove("actif");
-  $("connexion").style.display = "flex";
-  $("statut").textContent = "🔌 Connexion perdue. Reconnecte-toi.";
+// Petit signe de vie régulier (maintient l'indicateur 📱✔ sur l'écran)
+setInterval(() => { if (connecte) envoyer("ping"); }, 25000);
+
+function premiereConnexion() {
+  if (connecte) return;
+  connecte = true;
+  clearTimeout(timerEcranIntrouvable);
+  $("connexion").style.display = "none";
+  $("onglets").classList.add("actif");
+  $("pilotage").classList.add("actif");
+  $("etat-connexion").textContent = "📡 Connecté à l'écran (" + code + ")";
 }
 
 function envoyer(cmd, extra) {
-  if (!conn || !conn.open) return;
-  conn.send(Object.assign({ cmd }, extra || {}));
+  if (!client || !client.connected) return;
+  try { client.publish(topicBase() + "/cmd", JSON.stringify(Object.assign({ cmd }, extra || {}))); } catch (e) {}
   if (navigator.vibrate) navigator.vibrate(15);
 }
 
-/* ------------------------------------------------ Rendu */
+/* ------------------------------------------------ Onglets */
+
+$("ong-jeu").addEventListener("click", () => choisirOnglet("jeu"));
+$("ong-cartes").addEventListener("click", () => choisirOnglet("cartes"));
+
+function choisirOnglet(o) {
+  $("ong-jeu").classList.toggle("choisi", o === "jeu");
+  $("ong-cartes").classList.toggle("choisi", o === "cartes");
+  $("pilotage").classList.toggle("actif", o === "jeu");
+  $("parametres").classList.toggle("actif", o === "cartes");
+  if (o === "cartes") rendreCartes();
+}
+
+/* ------------------------------------------------ Rendu du jeu */
 
 const NOMS = { enfants: "ENFANTS", adultes: "PARENTS" };
 const TYPES = {
   question: "❓ QUESTION", triche: "😈 QUESTION DIABOLIQUE", blindtest: "🎵 BLIND TEST",
-  mime: "🎭 MIME", defi: "💪 DÉFI", bonus: "🎁 BONUS", malus: "💣 MALUS", piege: "💀 CARTE PIÈGE",
+  mime: "🎭 MIME", defi: "💪 DÉFI", bonus: "🎁 BONUS", malus: "💣 MALUS",
+  piege: "💀 CARTE PIÈGE", video: "🕺 ÉPREUVE VIDÉO",
 };
 
 function rendre() {
@@ -228,15 +331,13 @@ function rendre() {
   z.innerHTML = "";
 
   if (etat.ecran === "titre") {
-    z.appendChild(bouton("▶ DÉMARRER LA VEILLÉE", "vert grosse-solo", () => envoyer("demarrer"), "padding:22px;font-size:19px;width:100%"));
+    z.appendChild(bouton("▶ DÉMARRER LA VEILLÉE", "vert", () => envoyer("demarrer"), "padding:22px;font-size:19px;width:100%"));
     return;
   }
-
   if (etat.ecran === "victoire") {
     z.appendChild(bouton("⬅ Revenir au mur", "bleu", () => envoyer("retour"), "width:100%;padding:18px"));
     return;
   }
-
   if (etat.ecran === "mur") {
     const g = document.createElement("div");
     g.id = "grille";
@@ -274,20 +375,18 @@ function rendre() {
     return;
   }
 
-  // Outils
   const outils = document.createElement("div");
   outils.className = "rangee";
   outils.style.marginTop = "8px";
   const chrono = etat.timerTotal
     ? "⏱ " + etat.timerRestant + "s" + (etat.timerActif ? " ⏸" : " ▶")
     : "⏱ —";
-  outils.appendChild(bouton(chrono, "bleu", () => envoyer("timer")));
+  if (etat.timerTotal) outils.appendChild(bouton(chrono, "bleu", () => envoyer("timer")));
   if (c.indice)  outils.appendChild(bouton("🕵 Indice", "or", () => envoyer("indice")));
   if (c.reponse) outils.appendChild(bouton("👁 Réponse", "bleu", () => envoyer("reponse")));
-  if (c.musique) outils.appendChild(bouton("🎵", "violet", () => envoyer("musique")));
-  z.appendChild(outils);
+  if (c.media)   outils.appendChild(bouton("▶⏸", "violet", () => envoyer("musique")));
+  if (outils.children.length) z.appendChild(outils);
 
-  // Validation
   const val = document.createElement("div");
   val.className = "rangee grosse";
   val.style.marginTop = "8px";
@@ -314,8 +413,137 @@ function bouton(txt, classes, action, style) {
 }
 
 function echap(s) {
-  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
+
+/* ------------------------------------------------ Onglet Cartes (édition) */
+
+const CHAMPS = [
+  ["texte",    "Texte affiché en grand", "textarea"],
+  ["consigne", "Consigne (petite ligne)", "textarea"],
+  ["reponse",  "Réponse (touche R)", "textarea"],
+  ["indice",   "Indice de triche (touche I)", "input"],
+  ["secret",   "Secret du mime (nom caché)", "input"],
+  ["youtube",  "Lien YouTube (Just Dance…)", "input"],
+  ["musique",  "Fichier musique (musiques/…mp3)", "input"],
+  ["video",    "Fichier vidéo (videos/…mp4)", "input"],
+];
+
+document.querySelectorAll("#filtres button").forEach(b => {
+  b.addEventListener("click", () => {
+    filtreActif = b.dataset.f;
+    document.querySelectorAll("#filtres button").forEach(x => x.classList.toggle("choisi", x === b));
+    cartesOuvertes.clear();
+    rendreCartes();
+  });
+});
+
+function rendreCartes() {
+  const liste = $("liste-cartes");
+  liste.innerHTML = "";
+  if (!catalogue) {
+    liste.innerHTML = "<div style='text-align:center;color:rgba(255,255,255,.5);padding:20px'>⏳ En attente des cartes du grand écran…</div>";
+    return;
+  }
+  const nums = Object.keys(catalogue.cartes).map(Number).sort((a, b) => a - b);
+  for (const n of nums) {
+    const carte = catalogue.cartes[n];
+    const variante = carte[filtreActif];
+    if (!variante) continue; // cette carte n'a pas de contenu pour ce filtre
+
+    const ligne = document.createElement("div");
+    ligne.className = "carte-ligne" + (cartesOuvertes.has(n) ? " ouverte" : "");
+
+    const entete = document.createElement("button");
+    entete.className = "entete";
+    entete.innerHTML = `<span class="num">${String(n).padStart(2, "0")}</span>` +
+      `<span>${(TYPES[carte.type] || carte.type).split(" ")[0]}</span>` +
+      `<span class="apercu">${echap(variante.texte || "(vide)")}</span>`;
+    entete.addEventListener("click", () => {
+      if (cartesOuvertes.has(n)) cartesOuvertes.delete(n); else cartesOuvertes.add(n);
+      ligne.classList.toggle("ouverte");
+    });
+    ligne.appendChild(entete);
+
+    const ed = document.createElement("div");
+    ed.className = "editeur";
+    const champsUtiles = CHAMPS.filter(([cle]) =>
+      cle in variante ||
+      ["texte", "consigne", "reponse"].includes(cle) ||
+      (cle === "indice" && carte.type === "triche") ||
+      (cle === "secret" && carte.type === "mime") ||
+      (cle === "youtube" && carte.type === "video") ||
+      (cle === "musique" && carte.type === "blindtest")
+    );
+    for (const [cle, label, tag] of champsUtiles) {
+      const l = document.createElement("label");
+      l.textContent = label;
+      ed.appendChild(l);
+      const champ = document.createElement(tag);
+      champ.value = variante[cle] || "";
+      champ.dataset.cle = cle;
+      ed.appendChild(champ);
+    }
+    const btn = document.createElement("button");
+    btn.className = "enregistrer";
+    btn.textContent = "💾 Enregistrer la carte " + n;
+    btn.addEventListener("click", () => {
+      const valeurs = {};
+      ed.querySelectorAll("[data-cle]").forEach(ch => { valeurs[ch.dataset.cle] = ch.value.trim(); });
+      envoyer("majCarte", { n, variantes: { [filtreActif]: valeurs } });
+      notifier("✔ Carte " + n + " enregistrée");
+    });
+    ed.appendChild(btn);
+    ligne.appendChild(ed);
+    liste.appendChild(ligne);
+  }
+}
+
+function notifier(txt) {
+  const n = document.createElement("div");
+  n.className = "notif";
+  n.textContent = txt;
+  document.body.appendChild(n);
+  setTimeout(() => n.remove(), 2000);
+}
+
+/* Export : télécharge un cartes.js prêt à remplacer celui du site */
+$("btn-exporter").addEventListener("click", () => {
+  if (!catalogue) { notifier("⏳ Cartes pas encore reçues"); return; }
+  const contenu = "/* Cartes exportées depuis la télécommande le " + new Date().toLocaleString("fr-FR") + "\n" +
+    "   Remplace le fichier cartes.js du site par celui-ci pour rendre les modifications permanentes. */\n\n" +
+    "const CONFIG = " + JSON.stringify({
+      equipes: catalogue.equipes,
+      premierTour: catalogue.premierTour,
+      cartes: catalogue.cartes,
+    }, null, 2) + ";\n";
+  const blob = new Blob([contenu], { type: "text/javascript" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "cartes.js";
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  notifier("⬇ cartes.js téléchargé");
+});
+
+$("btn-retablir").addEventListener("click", () => {
+  if (!confirmationCartes) {
+    confirmationCartes = true;
+    $("btn-retablir").textContent = "⚠ Toutes les modifs seront perdues — retouche pour confirmer";
+    $("btn-retablir").classList.add("rouge");
+    setTimeout(() => {
+      confirmationCartes = false;
+      $("btn-retablir").textContent = "↩ Rétablir les cartes d'origine";
+      $("btn-retablir").classList.remove("rouge");
+    }, 4000);
+  } else {
+    confirmationCartes = false;
+    $("btn-retablir").textContent = "↩ Rétablir les cartes d'origine";
+    $("btn-retablir").classList.remove("rouge");
+    envoyer("resetCartes");
+    notifier("↩ Cartes d'origine rétablies");
+  }
+});
 
 /* ------------------------------------------------ Boutons fixes */
 

@@ -22,13 +22,38 @@ Tu peux piloter TOUT le jeu depuis ton téléphone pendant que le grand écran e
    en ajoutant `/telecommande.html`).
 3. Entre le code → connecté ! (`📱✔` apparaît à côté du code sur l'écran)
 
-Sur le téléphone tu as : les scores (±1), le tour, le mur des cartes, et pendant
-une épreuve **la réponse et le secret des mimes sous les yeux** (le public ne
-voit rien !), le chrono, l'indice de triche, la validation réussi/raté, etc.
+Sur le téléphone tu as deux onglets :
+
+**🎮 Jeu** : les scores (±1), le tour, le mur des cartes, et pendant une épreuve
+**la réponse et le secret des mimes sous les yeux** (le public ne voit rien !),
+le chrono, l'indice de triche, la validation réussi/raté, etc.
 Le clavier de l'ordinateur continue de fonctionner en parallèle.
 
-> La connexion passe par internet (WebRTC). Si le Wi-Fi du centre est capricieux,
-> le partage de connexion du téléphone vers l'ordinateur marche très bien aussi.
+**🗂 Cartes** : le contenu de toutes les cartes, modifiable depuis le téléphone,
+trié par public — 🧒 Enfants / 🧑 Parents / 👥 Communes (les enfants ne tombent
+que sur le contenu enfants, les parents sur le contenu parents ; les communes
+font jouer tout le monde). Touche une carte pour modifier sa question, sa
+réponse, son indice, son lien YouTube… puis « 💾 Enregistrer » : le changement
+est **appliqué immédiatement** et **sauvegardé sur l'ordinateur** (il survit au
+rechargement de la page). Le bouton « ⬇ Télécharger la sauvegarde » te donne un
+fichier `cartes.js` prêt à remettre dans le projet pour rendre les modifications
+définitives, et « ↩ Rétablir » annule toutes les modifications.
+
+> La connexion passe par un relais internet (MQTT) : peu importe que le téléphone
+> soit en 4G et l'ordinateur en Wi-Fi, il faut juste que les deux aient internet.
+> L'écran et le téléphone se reconnectent tout seuls en cas de coupure.
+
+## 🕺 Vidéos Just Dance
+
+La carte **39** est une épreuve vidéo : colle un lien YouTube de Just Dance
+(depuis l'onglet 🗂 Cartes du téléphone, champ « Lien YouTube », ou dans
+`cartes.js`) et la vidéo s'affiche en grand sur l'écran. Touche `M` (ou le
+bouton ▶⏸ du téléphone) pour lancer / mettre en pause. Tout le monde danse,
+et tu donnes les points à l'équipe la plus motivée !
+
+Pour ajouter d'autres épreuves vidéo : dans `cartes.js`, mets `type: "video"`
+sur une carte et un champ `youtube:` (lien YouTube) ou `video:` (fichier local
+dans un dossier `videos/`).
 
 ## Déroulement d'un tour
 

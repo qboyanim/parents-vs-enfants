@@ -16,6 +16,7 @@ const CATEGORIES = {
   bonus:     { nom: "BONUS",               icone: "🎁", couleur: "#3ddc84" },
   malus:     { nom: "MALUS",               icone: "💣", couleur: "#ff4444" },
   piege:     { nom: "CARTE PIÈGE",         icone: "💀", couleur: "#ff2222" },
+  video:     { nom: "ÉPREUVE VIDÉO",       icone: "🕺", couleur: "#ff5cd6" },
 };
 
 const NB_CARTES = 40;
@@ -275,12 +276,13 @@ function ouvrirEpreuve() {
   $("timer").classList.toggle("visible", timerTotal > 0);
   majTimer();
 
-  // Musique
+  // Musique et vidéo (l'arrêt du média précédent doit venir avant l'affichage du nouveau)
   stopperMusique();
   if (contenu.musique) {
     audioMusique = new Audio(contenu.musique);
     audioMusique.addEventListener("error", () => annoncerEpreuve("⚠️ Fichier musique introuvable : " + contenu.musique));
   }
+  montrerVideo(contenu);
 
   // Boutons de validation adaptés
   const validationCommune = commun && !["bonus", "malus", "piege"].includes(carte.type);
@@ -515,7 +517,67 @@ function basculerReponse() {
   if (visible) sons.reveal();
 }
 
+/* Vidéos (Just Dance…) : champ youtube (lien ou identifiant) ou video (fichier local) */
+
+let lecteurYoutube = null, youtubeEnLecture = false, lecteurVideo = null;
+
+function idYoutube(s) {
+  if (!s) return null;
+  const m = String(s).match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/)|youtu\.be\/)([\w-]{6,})/);
+  if (m) return m[1];
+  if (/^[\w-]{6,15}$/.test(String(s).trim())) return String(s).trim();
+  return null;
+}
+
+function montrerVideo(contenu) {
+  const zone = $("video-zone");
+  zone.innerHTML = "";
+  lecteurYoutube = null; lecteurVideo = null; youtubeEnLecture = false;
+  const ecran = $("ecran-epreuve");
+  let visible = false;
+
+  if (contenu.youtube) {
+    const id = idYoutube(contenu.youtube);
+    if (id) {
+      const f = document.createElement("iframe");
+      f.src = "https://www.youtube.com/embed/" + id + "?enablejsapi=1&rel=0&modestbranding=1";
+      f.allow = "autoplay; encrypted-media; fullscreen";
+      f.allowFullscreen = true;
+      zone.appendChild(f);
+      lecteurYoutube = f;
+      visible = true;
+    } else {
+      annoncerEpreuve("⚠️ Lien YouTube invalide : " + contenu.youtube);
+    }
+  } else if (contenu.video) {
+    const v = document.createElement("video");
+    v.src = contenu.video;
+    v.controls = true;
+    v.addEventListener("error", () => annoncerEpreuve("⚠️ Fichier vidéo introuvable : " + contenu.video));
+    zone.appendChild(v);
+    lecteurVideo = v;
+    visible = true;
+  }
+
+  zone.classList.toggle("visible", visible);
+  ecran.classList.toggle("epreuve-video", visible);
+}
+
+function commandeYoutube(fonction) {
+  if (!lecteurYoutube || !lecteurYoutube.contentWindow) return;
+  lecteurYoutube.contentWindow.postMessage(JSON.stringify({ event: "command", func: fonction, args: "" }), "*");
+}
+
 function basculerMusique() {
+  if (lecteurYoutube) {
+    commandeYoutube(youtubeEnLecture ? "pauseVideo" : "playVideo");
+    youtubeEnLecture = !youtubeEnLecture;
+    return;
+  }
+  if (lecteurVideo) {
+    if (lecteurVideo.paused) lecteurVideo.play(); else lecteurVideo.pause();
+    return;
+  }
   if (!audioMusique) return;
   if (audioMusique.paused) {
     audioMusique.play();
@@ -528,6 +590,11 @@ function basculerMusique() {
 
 function stopperMusique() {
   if (audioMusique) { audioMusique.pause(); audioMusique = null; }
+  if (lecteurVideo) { try { lecteurVideo.pause(); } catch (e) {} lecteurVideo = null; }
+  if (lecteurYoutube) { commandeYoutube("pauseVideo"); lecteurYoutube = null; youtubeEnLecture = false; }
+  $("video-zone").innerHTML = "";
+  $("video-zone").classList.remove("visible");
+  $("ecran-epreuve").classList.remove("epreuve-video");
   $("vinyle").classList.add("pause");
 }
 
@@ -708,12 +775,16 @@ $("btn-adultes-moins").addEventListener("click", () => ajusterScore("adultes", -
 
 /* ---------------------------------------------------------------- Télécommande (téléphone via PeerJS) */
 
+const BROKERS = ["wss://broker.emqx.io:8084/mqtt", "wss://broker.hivemq.com:8884/mqtt"];
 let codeSalle = null;
-let connexionsTel = [];
-let peerEcran = null;
+let clientMqtt = null;
+let brokerActuel = 0;
+let telephoneVuA = 0;
+
+function topicBase() { return "pve-veillee/" + codeSalle; }
 
 function initTelecommande() {
-  if (typeof Peer === "undefined") return; // hors ligne : le jeu marche sans télécommande
+  if (typeof mqtt === "undefined") return; // hors ligne : le jeu marche sans télécommande
   codeSalle = localStorage.getItem("pve-code");
   if (!codeSalle) {
     const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -721,31 +792,44 @@ function initTelecommande() {
     localStorage.setItem("pve-code", codeSalle);
   }
   afficherCode("⏳ connexion…");
-  try {
-    peerEcran = new Peer("pve-veillee-" + codeSalle);
-  } catch (e) { afficherCode("❌ indisponible"); return; }
+  connecterBroker();
+  // L'indicateur 📱✔ s'efface si le téléphone ne donne plus signe de vie
+  setInterval(() => {
+    if (telephoneVuA && Date.now() - telephoneVuA > 90000) {
+      telephoneVuA = 0;
+      if (clientMqtt && clientMqtt.connected) afficherCode(codeSalle);
+    }
+  }, 10000);
+}
 
-  peerEcran.on("open", () => afficherCode(codeSalle));
-  peerEcran.on("connection", (conn) => {
-    conn.on("open", () => {
-      connexionsTel.push(conn);
-      afficherCode(codeSalle + " 📱✔");
-      envoyerEtat();
-    });
-    conn.on("data", (d) => executerCommande(d));
-    conn.on("close", () => {
-      connexionsTel = connexionsTel.filter(c => c !== conn);
-      if (!connexionsTel.length) afficherCode(codeSalle);
-    });
+function connecterBroker() {
+  if (clientMqtt) { try { clientMqtt.end(true); } catch (e) {} }
+  const url = BROKERS[brokerActuel % BROKERS.length];
+  clientMqtt = mqtt.connect(url, {
+    clientId: "pve-ecran-" + codeSalle + "-" + Math.random().toString(36).slice(2, 8),
+    clean: true,
+    connectTimeout: 8000,
+    reconnectPeriod: 4000,
   });
-  peerEcran.on("error", (err) => {
-    if (err.type === "unavailable-id") {
-      // Un ancien onglet garde le code : on en génère un nouveau
-      localStorage.removeItem("pve-code");
-      setTimeout(initTelecommande, 500);
-    } else if (["network", "server-error", "socket-error", "socket-closed"].includes(err.type)) {
-      afficherCode("❌ hors ligne");
-      setTimeout(() => { try { peerEcran.reconnect(); } catch (e) {} }, 5000);
+  let echecs = 0;
+  clientMqtt.on("connect", () => {
+    echecs = 0;
+    clientMqtt.subscribe(topicBase() + "/cmd");
+    afficherCode(codeSalle);
+    envoyerEtat();
+    envoyerCartes();
+  });
+  clientMqtt.on("message", (t, payload) => {
+    try { executerCommande(JSON.parse(payload.toString())); } catch (e) {}
+  });
+  clientMqtt.on("error", () => {});
+  clientMqtt.on("close", () => {
+    afficherCode("⏳ reconnexion…");
+    echecs++;
+    if (echecs >= 3) { // ce relais ne répond pas : on essaye le suivant
+      echecs = 0;
+      brokerActuel++;
+      connecterBroker();
     }
   });
 }
@@ -755,8 +839,12 @@ function afficherCode(txt) {
   $("regie-code").textContent = "📱 " + txt;
 }
 
+function publier(sousTopic, obj, retenu) {
+  if (!clientMqtt || !clientMqtt.connected) return;
+  try { clientMqtt.publish(topicBase() + "/" + sousTopic, JSON.stringify(obj), { retain: !!retenu, qos: 0 }); } catch (e) {}
+}
+
 function envoyerEtat() {
-  if (!connexionsTel.length) return;
   const msg = {
     type: "etat",
     scores: etat.scores,
@@ -779,14 +867,33 @@ function envoyerEtat() {
       indice: carteEnCours.contenu.indice || "",
       secret: carteEnCours.contenu.secret || "",
       musique: !!carteEnCours.contenu.musique,
+      media: !!(carteEnCours.contenu.musique || carteEnCours.contenu.youtube || carteEnCours.contenu.video),
     } : null,
   };
-  connexionsTel.forEach(c => { try { c.send(msg); } catch (e) {} });
+  publier("etat", msg, true);
+}
+
+// Catalogue complet des cartes (pour l'onglet Cartes de la télécommande)
+function envoyerCartes() {
+  publier("cartes", {
+    type: "cartes",
+    equipes: CONFIG.equipes,
+    premierTour: CONFIG.premierTour,
+    cartes: CONFIG.cartes,
+  }, true);
 }
 
 function executerCommande(d) {
   if (!d || !d.cmd) return;
   ctxSiPossible();
+  telephoneVuA = Date.now();
+  afficherCode(codeSalle + " 📱✔");
+  switch (d.cmd) {
+    case "hello": envoyerEtat(); envoyerCartes(); return;
+    case "ping": return;
+    case "majCarte": majCarte(d); return;
+    case "resetCartes": resetCartes(); return;
+  }
   switch (d.cmd) {
     case "demarrer":  if (ecranActuel === "titre") { montrerEcran("mur"); sons.jingle(); } break;
     case "carte":     if (ecranActuel === "mur") choisirCarte(+d.n); break;
@@ -816,6 +923,57 @@ function ctxSiPossible() {
   try { ctx(); } catch (e) {}
 }
 
+/* ------- Modification des cartes depuis la télécommande (onglet Paramètres) */
+
+const CLE_CARTES = "pve-cartes-v1";
+const CHAMPS_EDITABLES = ["texte", "consigne", "reponse", "indice", "secret", "musique", "youtube", "video"];
+let CARTES_ORIGINALES = null; // instantané avant toute modification
+
+function chargerModifsCartes() {
+  CARTES_ORIGINALES = JSON.parse(JSON.stringify(CONFIG.cartes));
+  let modifs = {};
+  try { modifs = JSON.parse(localStorage.getItem(CLE_CARTES) || "{}"); } catch (e) {}
+  for (const n in modifs) appliquerModifCarte(n, modifs[n]);
+}
+
+function appliquerModifCarte(n, variantes) {
+  const carte = CONFIG.cartes[n];
+  if (!carte) return;
+  for (const cible of ["enfants", "adultes", "commun"]) {
+    if (!variantes[cible]) continue;
+    if (!carte[cible]) carte[cible] = {};
+    for (const champ of CHAMPS_EDITABLES) {
+      if (champ in variantes[cible]) {
+        const v = variantes[cible][champ];
+        if (v === "" || v == null) delete carte[cible][champ];
+        else carte[cible][champ] = v;
+      }
+    }
+  }
+}
+
+function majCarte(d) {
+  if (!d.n || !d.variantes || !CONFIG.cartes[d.n]) return;
+  appliquerModifCarte(d.n, d.variantes);
+  let modifs = {};
+  try { modifs = JSON.parse(localStorage.getItem(CLE_CARTES) || "{}"); } catch (e) {}
+  modifs[d.n] = Object.assign(modifs[d.n] || {}, d.variantes);
+  try { localStorage.setItem(CLE_CARTES, JSON.stringify(modifs)); } catch (e) {}
+  envoyerCartes();
+  // Si la carte modifiée est en cours d'affichage, on rafraîchit
+  if (carteEnCours && carteEnCours.numero === +d.n) {
+    const def = CONFIG.cartes[d.n];
+    carteEnCours.contenu = def.commun || def[carteEnCours.equipe] || def.enfants || def.adultes;
+    ouvrirEpreuve();
+  }
+}
+
+function resetCartes() {
+  try { localStorage.removeItem(CLE_CARTES); } catch (e) {}
+  if (CARTES_ORIGINALES) CONFIG.cartes = JSON.parse(JSON.stringify(CARTES_ORIGINALES));
+  envoyerCartes();
+}
+
 function resetSansConfirmation() {
   etat = {
     scores: { enfants: 0, adultes: 0 },
@@ -832,6 +990,7 @@ function resetSansConfirmation() {
 
 /* ---------------------------------------------------------------- Démarrage */
 
+chargerModifsCartes();
 charger();
 construireMur();
 rafraichirBandeau();

@@ -27,7 +27,14 @@
      //                            seul le présentateur voit le nom (maintenir V)
      //   musique:  "musiques/chanson.mp3"  -> fichier audio pour blind test
      //                            (mets le fichier dans le dossier musiques/)
+     //   youtube:  "https://www.youtube.com/watch?v=..."  -> vidéo YouTube
+     //                            affichée en grand (Just Dance, extraits…).
+     //                            Touche M ou bouton 🎵 pour lancer/mettre en pause.
+     //   video:    "videos/fichier.mp4"    -> vidéo locale (dossier videos/ à créer)
    }
+
+   Le type "video" est fait pour les épreuves Just Dance : mets un lien
+   YouTube de Just Dance dans le champ youtube et fais danser tout le monde !
 
    Pour les BONUS / MALUS, ajoute un champ "effet" :
      effet: "double"          -> prochaine épreuve réussie = points x2 (badge x2)
@@ -303,12 +310,14 @@ const CONFIG = {
     },
 
     39: {
-      type: "blindtest", points: 3, timer: 45,
+      type: "video", points: 3, timer: 0,
       commun: {
-        texte: "BLIND TEST DANSÉ ! 💃",
-        consigne: "Trouvez le titre… et toute l'équipe doit faire la danse ! L'équipe la plus motivée gagne.",
-        reponse: "Macarena — Los del Río",
-        // musique: "musiques/carte39-commun.mp3",
+        texte: "JUST DANCE ! 🕺💃",
+        consigne: "Tout le monde debout ! Les deux équipes dansent en même temps — l'équipe la plus motivée gagne les points.",
+        // ⚠️ Colle ici le lien YouTube du Just Dance de ton choix
+        // (modifiable aussi depuis l'onglet Cartes de la télécommande) :
+        youtube: "",
+        reponse: "L'équipe qui a mis le plus d'ambiance gagne !",
       },
     },
 
