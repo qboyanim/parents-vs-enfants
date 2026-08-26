@@ -1842,14 +1842,11 @@ function verdictBruit() {
     return;
   }
   const pE = Math.round(s.enfants * 100), pA = Math.round(s.adultes * 100);
-  if (pE === pA) {
-    majStatutBruit("ÉGALITÉ PARFAITE ! Recriez pour vous départager !");
-    bruitometre.scores = { enfants: null, adultes: null };
-    return;
-  }
-  const gagnant = pE > pA ? "enfants" : "adultes";
+  const gagnant = pE >= pA ? "enfants" : "adultes"; // égalité : avantage aux enfants
   $("jauge-" + gagnant).classList.add("gagnante");
-  $("bruit-message").textContent = "LES " + CONFIG.equipes[gagnant].nom + " COMMENCERONT !";
+  $("bruit-message").textContent = pE === pA
+    ? "ÉGALITÉ ! Avantage aux ENFANTS 🧒"
+    : "LES " + CONFIG.equipes[gagnant].nom + " COMMENCERONT !";
   etat.tour = gagnant;
   sauvegarder();
   rafraichirBandeau();

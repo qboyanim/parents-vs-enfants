@@ -135,8 +135,8 @@ le droit de commencer la partie !**
    **c'est elle qui commence** (le tour est réglé automatiquement). Referme
    le bruit-o-mètre (`B`, `Échap` ou le bouton) et c'est parti.
 
-En cas d'égalité parfaite, les scores sont remis à zéro : on recrie !
-Tu peux aussi refaire crier une équipe (son score est remplacé).
+En cas d'égalité parfaite, **les enfants gagnent automatiquement** (avantage
+aux petits !). Tu peux aussi refaire crier une équipe (son score est remplacé).
 
 ## 🥁 Défi surprise
 

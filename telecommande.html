@@ -379,7 +379,8 @@ function rendre() {
     z.appendChild(rang);
 
     if (bm.scores.enfants != null && bm.scores.adultes != null) {
-      const gagnant = bm.scores.enfants > bm.scores.adultes ? "ENFANTS" : "PARENTS";
+      // Égalité : avantage aux enfants
+      const gagnant = bm.scores.enfants >= bm.scores.adultes ? "ENFANTS" : "PARENTS";
       z.appendChild(bouton("👑 Les " + gagnant + " commencent — fermer et jouer !", "vert",
         () => envoyer("bruitometre"), "width:100%;margin-top:8px;padding:16px"));
     }
