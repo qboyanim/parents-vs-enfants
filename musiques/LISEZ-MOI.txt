@@ -1,0 +1,15 @@
+DOSSIER MUSIQUES — BLIND TESTS
+================================
+
+Dépose ici tes fichiers .mp3 pour les blind tests.
+
+Ensuite, ouvre le fichier cartes.js et, sur la carte concernée,
+enlève les // devant la ligne "musique" et mets le bon nom de fichier :
+
+    musique: "musiques/carte03-enfants.mp3",
+
+Pendant la soirée, la touche M lance / met en pause la musique.
+
+Astuce : tu peux aussi ne rien mettre ici et lancer les musiques
+toi-même depuis un téléphone ou YouTube — l'application affiche
+quand même l'écran Blind Test et la réponse (touche R).

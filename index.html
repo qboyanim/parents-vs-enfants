@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Parents VS Enfants — La Veillée</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bleu-enfants: #00d9ff;
+  --rose-parents: #ff2e88;
+  --or: #ffd24a;
+  --fond1: #12002e;
+  --fond2: #2a0a5e;
+  --fond3: #0a1445;
+  --blanc: #ffffff;
+  --font-titre: 'Luckiest Guy', 'Arial Black', Impact, sans-serif;
+  --font-texte: 'Fredoka', 'Segoe UI', Arial, sans-serif;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--fond1);
+  font-family: var(--font-texte);
+  color: var(--blanc);
+  cursor: default;
+}
+
+/* ====== FOND ANIMÉ PLATEAU TV ====== */
+#fond {
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 90% 70% at 50% -10%, rgba(120, 60, 255, .45), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 15% 110%, rgba(0, 217, 255, .22), transparent 60%),
+    radial-gradient(ellipse 70% 60% at 85% 110%, rgba(255, 46, 136, .22), transparent 60%),
+    linear-gradient(160deg, var(--fond1) 0%, var(--fond2) 45%, var(--fond3) 100%);
+  z-index: -2;
+}
+#fond::after {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,.10) 1.5px, transparent 1.5px);
+  background-size: 46px 46px;
+  animation: derive 60s linear infinite;
+  opacity: .5;
+}
+@keyframes derive { from { background-position: 0 0; } to { background-position: 460px 460px; } }
+
+.projecteur {
+  position: fixed; top: -30vh; width: 34vw; height: 130vh;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, .10), transparent 70%);
+  clip-path: polygon(45% 0, 55% 0, 100% 100%, 0% 100%);
+  z-index: -1; pointer-events: none;
+  animation: balaye 9s ease-in-out infinite alternate;
+}
+.projecteur.p1 { left: 4vw; }
+.projecteur.p2 { right: 4vw; animation-delay: -4.5s; animation-direction: alternate-reverse; }
+@keyframes balaye { from { transform: rotate(-12deg); } to { transform: rotate(12deg); } }
+
+/* ====== ÉCRANS ====== */
+.ecran {
+  position: fixed; inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+}
+.ecran.actif { display: flex; }
+
+/* ====== ÉCRAN TITRE ====== */
+#ecran-titre { justify-content: center; gap: 3vh; text-align: center; }
+#ecran-titre .sous-titre {
+  font-family: var(--font-titre);
+  font-size: 3.2vh; letter-spacing: .35em; color: var(--or);
+  text-shadow: 0 0 20px rgba(255, 210, 74, .6);
+}
+#titre-principal {
+  font-family: var(--font-titre);
+  font-size: 12vh; line-height: 1.05;
+  text-align: center;
+}
+#titre-principal .enfants { color: var(--bleu-enfants); text-shadow: 0 0 40px rgba(0,217,255,.75), 0 .06em 0 #00518a; }
+#titre-principal .vs {
+  display: inline-block; color: var(--or); font-size: 9vh;
+  text-shadow: 0 0 40px rgba(255,210,74,.85), 0 .06em 0 #8a6a00;
+  animation: pulse-vs 1.2s ease-in-out infinite;
+}
+#titre-principal .parents { color: var(--rose-parents); text-shadow: 0 0 40px rgba(255,46,136,.75), 0 .06em 0 #8a0044; }
+@keyframes pulse-vs { 0%, 100% { transform: scale(1) rotate(-4deg); } 50% { transform: scale(1.18) rotate(4deg); } }
+#titre-appuyez {
+  font-size: 3vh; color: rgba(255,255,255,.85); margin-top: 4vh;
+  animation: clignote 1.4s ease-in-out infinite;
+}
+@keyframes clignote { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+#titre-code {
+  position: fixed; bottom: 1.5vh; right: 1.5vw;
+  font-size: 1.9vh; color: rgba(255, 255, 255, .45);
+}
+#titre-code b { color: rgba(255, 210, 74, .8); letter-spacing: .15em; }
+
+/* ====== BANDEAU SCORES (mur) ====== */
+#bandeau {
+  width: 100%;
+  display: flex; align-items: stretch; justify-content: space-between;
+  padding: 1.6vh 2vw .6vh;
+  gap: 1vw;
+}
+.panneau-equipe {
+  flex: 1; max-width: 30vw;
+  display: flex; align-items: center; gap: 1.2vw;
+  padding: 1.2vh 1.5vw;
+  border-radius: 2vh;
+  background: rgba(0, 0, 0, .35);
+  border: .4vh solid transparent;
+  position: relative;
+  transition: border-color .3s, box-shadow .3s, transform .3s;
+}
+.panneau-equipe .icone { font-size: 5.5vh; }
+.panneau-equipe .infos { display: flex; flex-direction: column; }
+.panneau-equipe .nom { font-family: var(--font-titre); font-size: 3.4vh; letter-spacing: .05em; }
+.panneau-equipe .score { font-family: var(--font-titre); font-size: 6.5vh; line-height: 1; }
+#panneau-enfants .nom, #panneau-enfants .score { color: var(--bleu-enfants); }
+#panneau-adultes .nom, #panneau-adultes .score { color: var(--rose-parents); }
+#panneau-adultes { flex-direction: row-reverse; text-align: right; }
+#panneau-adultes .infos { align-items: flex-end; }
+.panneau-equipe.a-toi {
+  transform: scale(1.05);
+}
+#panneau-enfants.a-toi { border-color: var(--bleu-enfants); box-shadow: 0 0 35px rgba(0,217,255,.55), inset 0 0 25px rgba(0,217,255,.15); }
+#panneau-adultes.a-toi { border-color: var(--rose-parents); box-shadow: 0 0 35px rgba(255,46,136,.55), inset 0 0 25px rgba(255,46,136,.15); }
+.badges { display: flex; gap: .4vw; margin-top: .3vh; min-height: 2.6vh; }
+.badge {
+  font-size: 1.8vh; font-weight: 700;
+  background: rgba(255, 210, 74, .18);
+  border: 1px solid var(--or); color: var(--or);
+  padding: .1vh .7vw; border-radius: 1.5vh;
+  animation: badge-pop .4s ease;
+}
+@keyframes badge-pop { from { transform: scale(0); } to { transform: scale(1); } }
+
+#indicateur-tour {
+  align-self: center; text-align: center;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+}
+#indicateur-tour .a-vous { font-family: var(--font-titre); font-size: 2.4vh; color: rgba(255,255,255,.7); letter-spacing: .25em; }
+#tour-equipe {
+  font-family: var(--font-titre); font-size: 5vh; line-height: 1.1;
+  animation: tour-pop .5s ease;
+}
+@keyframes tour-pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* ====== MUR DE CARTES ====== */
+#mur {
+  flex: 1; width: 100%;
+  padding: 1vh 2vw 2.4vh;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(5, 1fr);
+  gap: 1.4vh .9vw;
+}
+.carte { perspective: 900px; cursor: pointer; }
+.carte-inner {
+  position: relative; width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform .7s cubic-bezier(.35, 1.3, .5, 1);
+}
+.carte.retournee .carte-inner { transform: rotateY(180deg); }
+.carte-face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  border-radius: 1.6vh;
+  display: flex; align-items: center; justify-content: center;
+}
+.carte-dos {
+  background: linear-gradient(150deg, #3b0f8f 0%, #5a1bd6 45%, #2d0a72 100%);
+  border: .35vh solid rgba(255, 255, 255, .35);
+  box-shadow: 0 .8vh 2vh rgba(0, 0, 0, .5), inset 0 0 3vh rgba(255, 255, 255, .12);
+  font-family: var(--font-titre);
+  font-size: 4.6vh;
+  color: var(--blanc);
+  text-shadow: 0 .4vh 0 rgba(0, 0, 0, .35);
+  overflow: hidden;
+}
+.carte-dos::before {
+  content: '★';
+  position: absolute; top: .5vh; right: .8vw;
+  font-size: 1.8vh; color: var(--or); opacity: .9;
+}
+.carte:not(.utilisee):hover .carte-inner { transform: translateY(-.8vh) scale(1.04); }
+.carte:not(.utilisee):hover .carte-dos { box-shadow: 0 1.4vh 3vh rgba(0,0,0,.6), 0 0 3vh rgba(255, 210, 74, .5), inset 0 0 3vh rgba(255,255,255,.2); }
+.carte-avant {
+  transform: rotateY(180deg);
+  background: rgba(10, 5, 35, .85);
+  border: .35vh solid rgba(255, 255, 255, .15);
+  font-size: 4.5vh;
+  flex-direction: column; gap: .4vh;
+}
+.carte-avant .mini-equipe { font-size: 1.5vh; font-weight: 700; letter-spacing: .1em; opacity: .8; }
+.carte.utilisee { cursor: default; }
+.carte.utilisee .carte-inner { opacity: .38; filter: saturate(.4); }
+.carte.selection { z-index: 5; }
+.carte.selection .carte-inner { animation: carte-choisie .9s ease forwards; }
+
+/* Onde de choc : les autres cartes sautent quand une carte est retournée */
+.carte.onde { animation: onde-saut .55s cubic-bezier(.3, 1.5, .5, 1) both; }
+@keyframes onde-saut {
+  0%   { transform: translateY(0) scale(1); }
+  35%  { transform: translateY(-2.2vh) scale(1.07) rotate(1.5deg); }
+  70%  { transform: translateY(.6vh) scale(.98); }
+  100% { transform: translateY(0) scale(1); }
+}
+.onde-ring {
+  position: fixed;
+  width: 1vh; height: 1vh;
+  border-radius: 50%;
+  border: .6vh solid rgba(255, 210, 74, .85);
+  box-shadow: 0 0 4vh rgba(255, 210, 74, .6), inset 0 0 3vh rgba(255, 210, 74, .4);
+  transform: translate(-50%, -50%);
+  pointer-events: none; z-index: 4;
+  animation: onde-ring .9s ease-out forwards;
+}
+@keyframes onde-ring {
+  to { width: 170vh; height: 170vh; opacity: 0; border-width: .1vh; }
+}
+@keyframes carte-choisie {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.25); }
+  100% { transform: scale(1.25) rotateY(180deg); }
+}
+
+#saisie-numero {
+  position: fixed; bottom: 3vh; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-titre); font-size: 4vh; color: var(--or);
+  background: rgba(0, 0, 0, .6); padding: .6vh 2vw; border-radius: 2vh;
+  border: .3vh solid var(--or);
+  display: none;
+}
+
+/* ====== ÉCRAN ÉPREUVE ====== */
+#ecran-epreuve { justify-content: flex-start; }
+#epreuve-haut {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 2vh 3vw 0;
+}
+#epreuve-categorie {
+  display: flex; align-items: center; gap: 1vw;
+  font-family: var(--font-titre); font-size: 4.2vh;
+  padding: .8vh 2vw;
+  border-radius: 5vh;
+  background: rgba(0, 0, 0, .4);
+  border: .4vh solid var(--cat-couleur, var(--or));
+  color: var(--cat-couleur, var(--or));
+  box-shadow: 0 0 30px color-mix(in srgb, var(--cat-couleur, var(--or)) 50%, transparent);
+  animation: tour-pop .5s ease;
+}
+#epreuve-equipe {
+  font-family: var(--font-titre); font-size: 3.4vh;
+  padding: .8vh 1.8vw; border-radius: 5vh;
+  background: rgba(0, 0, 0, .4);
+}
+#epreuve-numero {
+  position: fixed; bottom: 1.5vh; right: 1.5vw;
+  font-family: var(--font-titre); font-size: 2.2vh; opacity: .35;
+}
+
+#epreuve-centre {
+  flex: 1; width: 100%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3.5vh; padding: 0 6vw;
+  text-align: center;
+}
+#epreuve-icone { font-size: 11vh; animation: flotte 2.6s ease-in-out infinite; }
+@keyframes flotte { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-1.6vh) rotate(3deg); } }
+#epreuve-texte {
+  font-size: 6vh; font-weight: 700; line-height: 1.25;
+  text-shadow: 0 .5vh 2vh rgba(0, 0, 0, .6);
+  animation: texte-entre .6s ease;
+}
+@keyframes texte-entre { from { transform: translateY(4vh); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+#epreuve-consigne { font-size: 2.8vh; color: rgba(255, 255, 255, .75); }
+#epreuve-points {
+  font-family: var(--font-titre); font-size: 3vh; color: var(--or);
+  background: rgba(255, 210, 74, .12); border: .3vh solid var(--or);
+  padding: .5vh 1.6vw; border-radius: 5vh;
+}
+
+#epreuve-reponse {
+  display: none;
+  font-size: 4.6vh; font-weight: 700;
+  color: #7CFF9B;
+  background: rgba(0, 60, 20, .55);
+  border: .4vh solid #7CFF9B;
+  border-radius: 2.5vh;
+  padding: 1.6vh 3vw;
+  box-shadow: 0 0 40px rgba(124, 255, 155, .4);
+}
+#epreuve-reponse.visible { display: block; animation: tour-pop .45s ease; }
+
+/* Indice de triche — discret */
+#indice {
+  position: fixed;
+  font-size: 3.2vh;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  pointer-events: none;
+  color: rgba(255, 255, 255, .5);
+  z-index: 30;
+}
+#indice.visible { opacity: .55; }
+#indice.flash { transition: opacity .2s ease; }
+
+/* Secret présentateur (mime caché) */
+#secret-peek {
+  position: fixed; bottom: 2vh; left: 2vw;
+  background: rgba(0, 0, 0, .92);
+  border: .3vh solid var(--or);
+  border-radius: 1.5vh;
+  padding: 1.2vh 1.5vw;
+  font-size: 2.6vh; font-weight: 700; color: var(--or);
+  display: none; z-index: 60;
+}
+#secret-peek.visible { display: block; }
+
+/* Timer */
+#timer {
+  position: fixed; top: 2vh; left: 50%; transform: translateX(-50%);
+  width: 13vh; height: 13vh;
+  display: none; align-items: center; justify-content: center;
+  z-index: 40;
+}
+#timer.visible { display: flex; }
+#timer svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+#timer circle { fill: rgba(0, 0, 0, .55); stroke-width: 8; }
+#timer .fond-cercle { stroke: rgba(255, 255, 255, .15); }
+#timer .prog-cercle { stroke: var(--or); stroke-linecap: round; transition: stroke-dashoffset 1s linear, stroke .3s; }
+#timer.urgent .prog-cercle { stroke: #ff4444; }
+#timer.urgent #timer-valeur { color: #ff4444; animation: pulse-vs .5s ease-in-out infinite; }
+#timer-valeur { font-family: var(--font-titre); font-size: 5vh; z-index: 1; }
+
+/* Vinyle blind test */
+#vinyle {
+  width: 22vh; height: 22vh; border-radius: 50%;
+  background: repeating-radial-gradient(circle, #111 0 .5vh, #1d1d1d .5vh 1vh);
+  border: .6vh solid #333;
+  display: none; align-items: center; justify-content: center;
+  animation: tourne 2.2s linear infinite;
+  box-shadow: 0 0 50px rgba(160, 80, 255, .5);
+}
+#vinyle.visible { display: flex; }
+#vinyle.pause { animation-play-state: paused; }
+#vinyle .centre-vinyle {
+  width: 7vh; height: 7vh; border-radius: 50%;
+  background: radial-gradient(circle, var(--or), #c78f00);
+  display: flex; align-items: center; justify-content: center; font-size: 3.5vh;
+}
+@keyframes tourne { to { transform: rotate(360deg); } }
+
+/* ====== OVERLAY RÉSULTAT ====== */
+#overlay-resultat {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center; justify-content: center; flex-direction: column; gap: 2vh;
+  z-index: 80;
+}
+#overlay-resultat.visible { display: flex; }
+#overlay-resultat.bon { background: radial-gradient(circle, rgba(0, 120, 40, .93), rgba(0, 60, 20, .97)); }
+#overlay-resultat.mauvais { background: radial-gradient(circle, rgba(140, 10, 20, .93), rgba(70, 0, 10, .97)); }
+#overlay-resultat.special { background: radial-gradient(circle, rgba(90, 40, 160, .93), rgba(40, 10, 90, .97)); }
+#resultat-icone { font-size: 16vh; animation: resultat-pop .6s cubic-bezier(.3, 1.6, .5, 1); }
+#resultat-texte { font-family: var(--font-titre); font-size: 9vh; text-align: center; animation: resultat-pop .6s cubic-bezier(.3,1.6,.5,1) .1s backwards; }
+#resultat-points { font-family: var(--font-titre); font-size: 7vh; color: var(--or); animation: resultat-pop .6s cubic-bezier(.3,1.6,.5,1) .25s backwards; }
+@keyframes resultat-pop { from { transform: scale(0) rotate(-15deg); } to { transform: scale(1) rotate(0); } }
+
+/* Points flottants */
+.points-flottants {
+  position: fixed;
+  font-family: var(--font-titre); font-size: 6vh;
+  z-index: 90; pointer-events: none;
+  animation: monte 1.6s ease forwards;
+}
+@keyframes monte {
+  0% { transform: translateY(0) scale(.5); opacity: 0; }
+  20% { transform: translateY(-2vh) scale(1.3); opacity: 1; }
+  100% { transform: translateY(-14vh) scale(1); opacity: 0; }
+}
+
+/* ====== ÉCRAN VICTOIRE ====== */
+#ecran-victoire { justify-content: center; gap: 3vh; z-index: 70; background: rgba(8, 0, 25, .9); }
+#victoire-trophee { font-size: 18vh; animation: flotte 2s ease-in-out infinite; }
+#victoire-titre { font-family: var(--font-titre); font-size: 10vh; text-align: center; line-height: 1.1; }
+#victoire-score { font-family: var(--font-titre); font-size: 5vh; color: var(--or); }
+.confetti {
+  position: fixed; top: -5vh;
+  width: 1.6vh; height: 2.4vh;
+  z-index: 71;
+  animation: tombe linear forwards;
+}
+@keyframes tombe {
+  to { transform: translateY(115vh) rotate(720deg); }
+}
+
+/* ====== BARRE RÉGIE (présentateur) ====== */
+#regie {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: .6vw;
+  padding: 1.2vh 1vw;
+  background: rgba(0, 0, 0, .92);
+  border-top: 2px solid rgba(255, 255, 255, .2);
+  transform: translateY(110%);
+  transition: transform .3s ease;
+  z-index: 100;
+}
+#regie.visible { transform: translateY(0); }
+#regie button {
+  font-family: var(--font-texte); font-weight: 700;
+  font-size: 2.2vh;
+  padding: 1.2vh 1.2vw;
+  border-radius: 1.2vh;
+  border: none; cursor: pointer;
+  background: #333; color: #fff;
+}
+#regie button:hover { background: #555; }
+#regie button.vert { background: #1d7a3a; }
+#regie button.vert:hover { background: #279a4b; }
+#regie button.rouge { background: #a02030; }
+#regie button.rouge:hover { background: #c22a3d; }
+#regie button.bleu { background: #135a80; }
+#regie button.rose { background: #8a1f52; }
+#regie button.or { background: #8a6a00; }
+#regie .separateur { width: 2px; height: 4vh; background: rgba(255,255,255,.25); margin: 0 .4vw; }
+
+/* ====== AIDE ====== */
+#aide {
+  position: fixed; inset: 8vh 18vw;
+  background: rgba(5, 0, 20, .97);
+  border: .4vh solid var(--or);
+  border-radius: 3vh;
+  padding: 4vh;
+  display: none; z-index: 120;
+  overflow-y: auto;
+}
+#aide.visible { display: block; }
+#aide h2 { font-family: var(--font-titre); color: var(--or); font-size: 4vh; margin-bottom: 2vh; }
+#aide table { width: 100%; border-collapse: collapse; font-size: 2.4vh; }
+#aide td { padding: .8vh 1vw; border-bottom: 1px solid rgba(255,255,255,.12); }
+#aide kbd {
+  background: #222; border: 1px solid #555; border-radius: .8vh;
+  padding: .2vh 1vw; font-family: monospace; font-size: 2.2vh; color: var(--or);
+}
+</style>
+</head>
+<body>
+
+<div id="fond"></div>
+<div class="projecteur p1"></div>
+<div class="projecteur p2"></div>
+
+<!-- ÉCRAN TITRE -->
+<div id="ecran-titre" class="ecran actif">
+  <div class="sous-titre">★ LA GRANDE VEILLÉE ★</div>
+  <div id="titre-principal">
+    <span class="enfants">ENFANTS</span><br>
+    <span class="vs">VS</span><br>
+    <span class="parents">PARENTS</span>
+  </div>
+  <div id="titre-appuyez">Appuyez sur ESPACE pour commencer</div>
+  <div id="titre-code"></div>
+</div>
+
+<!-- ÉCRAN MUR -->
+<div id="ecran-mur" class="ecran">
+  <div id="bandeau">
+    <div id="panneau-enfants" class="panneau-equipe">
+      <div class="icone">🧒</div>
+      <div class="infos">
+        <div class="nom">ENFANTS</div>
+        <div class="score" id="score-enfants">0</div>
+        <div class="badges" id="badges-enfants"></div>
+      </div>
+    </div>
+    <div id="indicateur-tour">
+      <div class="a-vous">À VOUS DE JOUER</div>
+      <div id="tour-equipe">ENFANTS</div>
+    </div>
+    <div id="panneau-adultes" class="panneau-equipe">
+      <div class="icone">🧑</div>
+      <div class="infos">
+        <div class="nom">PARENTS</div>
+        <div class="score" id="score-adultes">0</div>
+        <div class="badges" id="badges-adultes"></div>
+      </div>
+    </div>
+  </div>
+  <div id="mur"></div>
+  <div id="saisie-numero"></div>
+</div>
+
+<!-- ÉCRAN ÉPREUVE -->
+<div id="ecran-epreuve" class="ecran">
+  <div id="epreuve-haut">
+    <div id="epreuve-categorie"><span id="cat-icone"></span><span id="cat-nom"></span></div>
+    <div id="epreuve-numero"></div>
+    <div id="epreuve-equipe"></div>
+  </div>
+  <div id="epreuve-centre">
+    <div id="epreuve-icone"></div>
+    <div id="vinyle"><div class="centre-vinyle">🎵</div></div>
+    <div id="epreuve-texte"></div>
+    <div id="epreuve-consigne"></div>
+    <div id="epreuve-points"></div>
+    <div id="epreuve-reponse"></div>
+  </div>
+</div>
+
+<!-- ÉCRAN VICTOIRE -->
+<div id="ecran-victoire" class="ecran">
+  <div id="victoire-trophee">🏆</div>
+  <div id="victoire-titre"></div>
+  <div id="victoire-score"></div>
+</div>
+
+<!-- TIMER -->
+<div id="timer">
+  <svg viewBox="0 0 100 100">
+    <circle class="fond-cercle" cx="50" cy="50" r="44"></circle>
+    <circle class="prog-cercle" cx="50" cy="50" r="44"></circle>
+  </svg>
+  <div id="timer-valeur"></div>
+</div>
+
+<!-- INDICE DISCRET -->
+<div id="indice"></div>
+
+<!-- SECRET PRÉSENTATEUR -->
+<div id="secret-peek"></div>
+
+<!-- OVERLAY RÉSULTAT -->
+<div id="overlay-resultat">
+  <div id="resultat-icone"></div>
+  <div id="resultat-texte"></div>
+  <div id="resultat-points"></div>
+</div>
+
+<!-- BARRE RÉGIE -->
+<div id="regie">
+  <button id="btn-retour">⬅ Mur (Échap)</button>
+  <div class="separateur"></div>
+  <button id="btn-timer" class="bleu">⏱ Timer (T)</button>
+  <button id="btn-indice" class="or">🕵 Indice (I)</button>
+  <button id="btn-reponse" class="bleu">👁 Réponse (R)</button>
+  <button id="btn-musique" class="bleu">🎵 Musique (M)</button>
+  <div class="separateur"></div>
+  <span id="boutons-validation">
+    <button id="btn-reussi" class="vert">✔ RÉUSSI (O)</button>
+    <button id="btn-rate" class="rouge">✘ RATÉ (N)</button>
+  </span>
+  <span id="boutons-commun" style="display:none">
+    <button id="btn-gagne-enfants" class="bleu">🧒 ENFANTS gagnent (E)</button>
+    <button id="btn-gagne-adultes" class="rose">🧑 PARENTS gagnent (P)</button>
+    <button id="btn-personne" class="rouge">Personne (N)</button>
+  </span>
+  <div class="separateur"></div>
+  <button id="btn-enfants-plus" class="bleu">Enfants +1</button>
+  <button id="btn-enfants-moins" class="bleu">−1</button>
+  <button id="btn-adultes-plus" class="rose">Parents +1</button>
+  <button id="btn-adultes-moins" class="rose">−1</button>
+  <div class="separateur"></div>
+  <button id="btn-tour">🔄 Tour (C)</button>
+  <button id="btn-victoire" class="or">🏆 Fin (F)</button>
+  <button id="btn-aide">❓ Aide</button>
+  <button id="btn-reset">♻ Nouvelle partie</button>
+  <span id="regie-code" style="font-size:2vh;color:#ffd24a;margin-left:.5vw"></span>
+</div>
+
+<!-- AIDE -->
+<div id="aide">
+  <h2>🎛 RÉGIE — RACCOURCIS CLAVIER</h2>
+  <table>
+    <tr><td><kbd>Souris en bas</kbd></td><td>Afficher / cacher la barre de régie</td></tr>
+    <tr><td><kbd>Clic</kbd> ou <kbd>numéro + Entrée</kbd></td><td>Choisir une carte sur le mur</td></tr>
+    <tr><td><kbd>R</kbd></td><td>Révéler la réponse</td></tr>
+    <tr><td><kbd>I</kbd></td><td>Faire apparaître / cacher l'indice de triche</td></tr>
+    <tr><td><kbd>T</kbd></td><td>Lancer / mettre en pause le chrono &nbsp;•&nbsp; <kbd>Maj+T</kbd> le remettre à zéro</td></tr>
+    <tr><td><kbd>O</kbd> / <kbd>N</kbd></td><td>Épreuve réussie (Oui) / ratée (Non)</td></tr>
+    <tr><td><kbd>E</kbd> / <kbd>P</kbd></td><td>Épreuve commune : les Enfants / Parents gagnent</td></tr>
+    <tr><td><kbd>V</kbd> (maintenir)</td><td>Voir le secret du mime (présentateur uniquement)</td></tr>
+    <tr><td><kbd>M</kbd></td><td>Jouer / mettre en pause la musique du blind test</td></tr>
+    <tr><td><kbd>C</kbd></td><td>Changer d'équipe manuellement</td></tr>
+    <tr><td><kbd>F</kbd></td><td>Écran de victoire finale &nbsp;•&nbsp; <kbd>Échap</kbd> pour revenir</td></tr>
+    <tr><td><kbd>Échap</kbd></td><td>Revenir au mur sans valider</td></tr>
+    <tr><td><kbd>?</kbd> ou <kbd>F1</kbd></td><td>Afficher / cacher cette aide</td></tr>
+  </table>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="cartes.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

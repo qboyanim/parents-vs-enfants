@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#12002e">
+<title>🎛 Télécommande — Parents VS Enfants</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  min-height: 100%;
+  background: linear-gradient(160deg, #12002e, #2a0a5e 60%, #0a1445);
+  font-family: 'Segoe UI', system-ui, Arial, sans-serif;
+  color: #fff;
+  user-select: none;
+}
+body { padding: 12px 12px 30px; max-width: 480px; margin: 0 auto; }
+
+h1 { font-size: 20px; text-align: center; margin: 8px 0 4px; }
+h1 .e { color: #00d9ff; } h1 .p { color: #ff2e88; }
+.sous { text-align: center; font-size: 13px; color: rgba(255,255,255,.6); margin-bottom: 14px; }
+
+button {
+  border: none; border-radius: 12px; cursor: pointer;
+  font-family: inherit; font-weight: 700; color: #fff;
+  background: #3a3a55;
+  padding: 14px 10px; font-size: 16px;
+  touch-action: manipulation;
+}
+button:active { transform: scale(.96); filter: brightness(1.25); }
+button:disabled { opacity: .35; }
+
+.vert  { background: #1d7a3a; }
+.rouge { background: #a02030; }
+.bleu  { background: #135a80; }
+.rose  { background: #8a1f52; }
+.or    { background: #8a6a00; }
+.violet{ background: #5a1bd6; }
+
+/* --- Connexion --- */
+#connexion { display: flex; flex-direction: column; gap: 14px; margin-top: 8vh; }
+#connexion input {
+  font-size: 30px; text-align: center; letter-spacing: .4em; text-transform: uppercase;
+  padding: 14px; border-radius: 12px; border: 2px solid #5a1bd6;
+  background: rgba(0,0,0,.4); color: #ffd24a; width: 100%;
+  font-family: inherit; font-weight: 700; outline: none;
+}
+#statut { text-align: center; font-size: 14px; color: rgba(255,255,255,.7); min-height: 20px; }
+
+/* --- Pilotage --- */
+#pilotage { display: none; flex-direction: column; gap: 12px; }
+#pilotage.actif { display: flex; }
+
+.scores { display: flex; gap: 8px; }
+.eq {
+  flex: 1; border-radius: 14px; padding: 8px; text-align: center;
+  background: rgba(0,0,0,.35); border: 2px solid transparent;
+}
+.eq.a-toi.enfants { border-color: #00d9ff; box-shadow: 0 0 12px rgba(0,217,255,.5); }
+.eq.a-toi.adultes { border-color: #ff2e88; box-shadow: 0 0 12px rgba(255,46,136,.5); }
+.eq .nom { font-size: 13px; font-weight: 700; }
+.eq.enfants .nom, .eq.enfants .val { color: #00d9ff; }
+.eq.adultes .nom, .eq.adultes .val { color: #ff2e88; }
+.eq .val { font-size: 34px; font-weight: 900; line-height: 1.1; }
+.eq .pm { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
+.eq .pm button { padding: 8px 0; width: 52px; font-size: 18px; }
+.eq .bdg { font-size: 11px; color: #ffd24a; min-height: 14px; margin-top: 3px; }
+
+#tour-bar {
+  text-align: center; padding: 10px; border-radius: 12px;
+  background: rgba(0,0,0,.35); font-weight: 700; font-size: 15px;
+}
+
+/* Mur */
+#grille { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+#grille button { padding: 0; height: 52px; font-size: 18px; background: #4316a8; }
+#grille button.usee { background: #22183a; color: rgba(255,255,255,.35); font-size: 14px; }
+
+/* Épreuve */
+.carte-info {
+  background: rgba(0,0,0,.4); border-radius: 14px; padding: 14px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.carte-info .type { font-weight: 900; font-size: 15px; color: #ffd24a; }
+.carte-info .txt { font-size: 17px; font-weight: 700; line-height: 1.3; }
+.carte-info .csg { font-size: 13px; color: rgba(255,255,255,.65); }
+.rep {
+  background: rgba(0,80,30,.5); border: 1px solid #7CFF9B; border-radius: 10px;
+  padding: 10px; font-size: 15px; font-weight: 700; color: #7CFF9B;
+}
+.sec {
+  background: rgba(120,80,0,.4); border: 1px solid #ffd24a; border-radius: 10px;
+  padding: 10px; font-size: 15px; font-weight: 700; color: #ffd24a;
+}
+.ind { font-size: 13px; color: rgba(255,255,255,.6); }
+
+.rangee { display: flex; gap: 8px; }
+.rangee button { flex: 1; }
+.grosse button { padding: 18px 10px; font-size: 17px; }
+
+#bas { display: flex; gap: 8px; margin-top: 6px; }
+#bas button { flex: 1; font-size: 13px; padding: 10px 6px; }
+#etat-connexion { text-align: center; font-size: 12px; color: rgba(255,255,255,.5); }
+</style>
+</head>
+<body>
+
+<h1>🎛 <span class="e">ENFANTS</span> VS <span class="p">PARENTS</span></h1>
+<div class="sous">Télécommande du présentateur</div>
+
+<!-- CONNEXION -->
+<div id="connexion">
+  <div style="text-align:center;font-size:15px">Entre le code affiché sur le grand écran :</div>
+  <input id="champ-code" maxlength="4" placeholder="CODE" autocomplete="off" autocapitalize="characters">
+  <button class="violet" id="btn-connecter" style="font-size:18px;padding:16px">📡 SE CONNECTER</button>
+  <div id="statut"></div>
+</div>
+
+<!-- PILOTAGE -->
+<div id="pilotage">
+  <div class="scores">
+    <div class="eq enfants" id="eq-enfants">
+      <div class="nom">🧒 ENFANTS</div>
+      <div class="val" id="sc-enfants">0</div>
+      <div class="bdg" id="bdg-enfants"></div>
+      <div class="pm">
+        <button class="bleu" data-cmd="score" data-eq="enfants" data-d="1">+1</button>
+        <button data-cmd="score" data-eq="enfants" data-d="-1">−1</button>
+      </div>
+    </div>
+    <div class="eq adultes" id="eq-adultes">
+      <div class="nom">🧑 PARENTS</div>
+      <div class="val" id="sc-adultes">0</div>
+      <div class="bdg" id="bdg-adultes"></div>
+      <div class="pm">
+        <button class="rose" data-cmd="score" data-eq="adultes" data-d="1">+1</button>
+        <button data-cmd="score" data-eq="adultes" data-d="-1">−1</button>
+      </div>
+    </div>
+  </div>
+
+  <button id="tour-bar" data-cmd="tour">🔄 …</button>
+
+  <div id="zone"></div>
+
+  <div id="bas">
+    <button class="or" data-cmd="victoire">🏆 Fin</button>
+    <button id="btn-nouvelle">♻ Nouvelle partie</button>
+  </div>
+  <div id="etat-connexion"></div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+let peer = null, conn = null, etat = null;
+let confirmationReset = false;
+
+/* ------------------------------------------------ Connexion */
+
+const dernierCode = localStorage.getItem("pve-tel-code") || "";
+$("champ-code").value = dernierCode;
+
+$("btn-connecter").addEventListener("click", connecter);
+$("champ-code").addEventListener("keydown", (e) => { if (e.key === "Enter") connecter(); });
+
+function connecter() {
+  const code = $("champ-code").value.trim().toUpperCase();
+  if (code.length !== 4) { $("statut").textContent = "Le code fait 4 caractères."; return; }
+  localStorage.setItem("pve-tel-code", code);
+  $("statut").textContent = "⏳ Connexion à l'écran…";
+
+  if (peer) { try { peer.destroy(); } catch (e) {} }
+  peer = new Peer();
+  peer.on("open", () => {
+    conn = peer.connect("pve-veillee-" + code, { reliable: true });
+    const echec = setTimeout(() => {
+      $("statut").textContent = "❌ Écran introuvable. Vérifie le code et que le grand écran est bien ouvert.";
+    }, 8000);
+    conn.on("open", () => {
+      clearTimeout(echec);
+      $("connexion").style.display = "none";
+      $("pilotage").classList.add("actif");
+      $("etat-connexion").textContent = "📡 Connecté à l'écran (" + code + ")";
+    });
+    conn.on("data", (d) => { if (d && d.type === "etat") { etat = d; rendre(); } });
+    conn.on("close", perdu);
+    conn.on("error", perdu);
+  });
+  peer.on("error", (err) => {
+    $("statut").textContent = "❌ Erreur réseau (" + err.type + "). Réessaie.";
+  });
+}
+
+function perdu() {
+  $("pilotage").classList.remove("actif");
+  $("connexion").style.display = "flex";
+  $("statut").textContent = "🔌 Connexion perdue. Reconnecte-toi.";
+}
+
+function envoyer(cmd, extra) {
+  if (!conn || !conn.open) return;
+  conn.send(Object.assign({ cmd }, extra || {}));
+  if (navigator.vibrate) navigator.vibrate(15);
+}
+
+/* ------------------------------------------------ Rendu */
+
+const NOMS = { enfants: "ENFANTS", adultes: "PARENTS" };
+const TYPES = {
+  question: "❓ QUESTION", triche: "😈 QUESTION DIABOLIQUE", blindtest: "🎵 BLIND TEST",
+  mime: "🎭 MIME", defi: "💪 DÉFI", bonus: "🎁 BONUS", malus: "💣 MALUS", piege: "💀 CARTE PIÈGE",
+};
+
+function rendre() {
+  if (!etat) return;
+  $("sc-enfants").textContent = etat.scores.enfants;
+  $("sc-adultes").textContent = etat.scores.adultes;
+  $("bdg-enfants").textContent = (etat.badges.enfants || []).map(b => b.txt).join("  ");
+  $("bdg-adultes").textContent = (etat.badges.adultes || []).map(b => b.txt).join("  ");
+  $("eq-enfants").classList.toggle("a-toi", etat.tour === "enfants");
+  $("eq-adultes").classList.toggle("a-toi", etat.tour === "adultes");
+  $("tour-bar").textContent = "🔄 Au tour des " + NOMS[etat.tour] + " (toucher pour changer)";
+
+  const z = $("zone");
+  z.innerHTML = "";
+
+  if (etat.ecran === "titre") {
+    z.appendChild(bouton("▶ DÉMARRER LA VEILLÉE", "vert grosse-solo", () => envoyer("demarrer"), "padding:22px;font-size:19px;width:100%"));
+    return;
+  }
+
+  if (etat.ecran === "victoire") {
+    z.appendChild(bouton("⬅ Revenir au mur", "bleu", () => envoyer("retour"), "width:100%;padding:18px"));
+    return;
+  }
+
+  if (etat.ecran === "mur") {
+    const g = document.createElement("div");
+    g.id = "grille";
+    for (let n = 1; n <= 40; n++) {
+      const b = document.createElement("button");
+      const usage = etat.utilisees[n];
+      b.textContent = usage ? "✕" : n;
+      if (usage) { b.classList.add("usee"); b.disabled = true; }
+      b.addEventListener("click", () => envoyer("carte", { n }));
+      g.appendChild(b);
+    }
+    z.appendChild(g);
+    return;
+  }
+
+  // --- Épreuve en cours ---
+  const c = etat.carte;
+  if (!c) return;
+
+  const info = document.createElement("div");
+  info.className = "carte-info";
+  let html = `<div class="type">${TYPES[c.type] || c.type} — carte ${c.numero}`;
+  if (c.points) html += ` — ⭐${c.points}${c.perte ? " / −" + c.perte : ""}`;
+  html += `</div><div class="txt">${echap(c.texte)}</div>`;
+  if (c.consigne) html += `<div class="csg">${echap(c.consigne)}</div>`;
+  if (c.secret)   html += `<div class="sec">🤫 SECRET : ${echap(c.secret)}</div>`;
+  if (c.reponse)  html += `<div class="rep">✅ Réponse : ${echap(c.reponse)}</div>`;
+  if (c.indice)   html += `<div class="ind">🕵 Indice de triche : ${echap(c.indice)}</div>`;
+  info.innerHTML = html;
+  z.appendChild(info);
+
+  if (c.type === "bonus" || c.type === "malus") {
+    z.appendChild(bouton("➡ CONTINUER", "vert", () => envoyer("continuer"), "width:100%;padding:18px;margin-top:8px"));
+    z.appendChild(bouton("⬅ Annuler la carte", "", () => envoyer("retour"), "width:100%;margin-top:8px"));
+    return;
+  }
+
+  // Outils
+  const outils = document.createElement("div");
+  outils.className = "rangee";
+  outils.style.marginTop = "8px";
+  const chrono = etat.timerTotal
+    ? "⏱ " + etat.timerRestant + "s" + (etat.timerActif ? " ⏸" : " ▶")
+    : "⏱ —";
+  outils.appendChild(bouton(chrono, "bleu", () => envoyer("timer")));
+  if (c.indice)  outils.appendChild(bouton("🕵 Indice", "or", () => envoyer("indice")));
+  if (c.reponse) outils.appendChild(bouton("👁 Réponse", "bleu", () => envoyer("reponse")));
+  if (c.musique) outils.appendChild(bouton("🎵", "violet", () => envoyer("musique")));
+  z.appendChild(outils);
+
+  // Validation
+  const val = document.createElement("div");
+  val.className = "rangee grosse";
+  val.style.marginTop = "8px";
+  if (c.validationCommune) {
+    val.appendChild(bouton("🧒 ENFANTS", "bleu", () => envoyer("validerCommun", { gagnant: "enfants" })));
+    val.appendChild(bouton("🧑 PARENTS", "rose", () => envoyer("validerCommun", { gagnant: "adultes" })));
+    val.appendChild(bouton("Personne", "rouge", () => envoyer("validerCommun", { gagnant: null })));
+  } else {
+    val.appendChild(bouton("✔ RÉUSSI", "vert", () => envoyer("valider", { ok: true })));
+    val.appendChild(bouton("✘ RATÉ", "rouge", () => envoyer("valider", { ok: false })));
+  }
+  z.appendChild(val);
+
+  z.appendChild(bouton("⬅ Annuler (la carte redevient disponible)", "", () => envoyer("retour"), "width:100%;margin-top:8px;font-size:13px;padding:10px"));
+}
+
+function bouton(txt, classes, action, style) {
+  const b = document.createElement("button");
+  b.textContent = txt;
+  if (classes) b.className = classes;
+  if (style) b.style.cssText += style;
+  b.addEventListener("click", action);
+  return b;
+}
+
+function echap(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/* ------------------------------------------------ Boutons fixes */
+
+document.querySelectorAll("[data-cmd]").forEach(b => {
+  b.addEventListener("click", () => {
+    const cmd = b.dataset.cmd;
+    if (cmd === "score") envoyer("score", { equipe: b.dataset.eq, delta: +b.dataset.d });
+    else envoyer(cmd);
+  });
+});
+
+$("btn-nouvelle").addEventListener("click", () => {
+  if (!confirmationReset) {
+    confirmationReset = true;
+    $("btn-nouvelle").textContent = "⚠ Sûr ? Retouche pour confirmer";
+    $("btn-nouvelle").classList.add("rouge");
+    setTimeout(() => {
+      confirmationReset = false;
+      $("btn-nouvelle").textContent = "♻ Nouvelle partie";
+      $("btn-nouvelle").classList.remove("rouge");
+    }, 3000);
+  } else {
+    confirmationReset = false;
+    $("btn-nouvelle").textContent = "♻ Nouvelle partie";
+    $("btn-nouvelle").classList.remove("rouge");
+    envoyer("reset");
+  }
+});
+
+// Connexion automatique si un code est déjà mémorisé
+if (dernierCode.length === 4) connecter();
+</script>
+</body>
+</html>
