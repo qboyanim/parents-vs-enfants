@@ -1035,19 +1035,108 @@ function bonusPublic(equipe) {
 
 /* ---------------------------------------------------------------- Victoire */
 
+/* Grand final : podium qui sort du sol et compteurs à défilement */
+
+let victoireJeton = 0;   // annule proprement une animation en cours
+
 function ecranVictoire() {
+  const jeton = ++victoireJeton;
   const e = etat.scores.enfants, a = etat.scores.adultes;
-  let titre, couleur;
-  if (e > a)      { titre = "VICTOIRE DES ENFANTS !"; couleur = CONFIG.equipes.enfants.couleur; }
-  else if (a > e) { titre = "VICTOIRE DES PARENTS !"; couleur = CONFIG.equipes.adultes.couleur; }
-  else            { titre = "ÉGALITÉ PARFAITE !";     couleur = "#ffd24a"; }
-  $("victoire-titre").textContent = titre;
-  $("victoire-titre").style.color = couleur;
-  $("victoire-titre").style.textShadow = `0 0 40px ${couleur}`;
-  $("victoire-score").textContent = `ENFANTS ${e} — ${a} PARENTS`;
   montrerEcran("victoire");
-  sons.victoire();
-  lancerConfettis();
+
+  // Remise à zéro de la scène
+  $("victoire-entete").textContent = "🏆 ET LE GAGNANT EST… 🏆";
+  const titre = $("victoire-titre");
+  titre.textContent = "";
+  titre.classList.remove("montre");
+  $("victoire-mascotte").classList.remove("visible");
+  for (const eq of ["enfants", "adultes"]) {
+    const place = $("place-" + eq);
+    place.classList.remove("gagnant", "monte");
+    place.querySelector(".place-bloc").style.setProperty("--h", "0vh");
+    place.querySelector(".place-rang").textContent = "";
+    const sc = place.querySelector(".place-score");
+    sc.classList.remove("verrouille");
+    sc.textContent = "0";
+  }
+
+  sons.tambour();
+  // Les compteurs s'emballent, puis se verrouillent l'un après l'autre
+  roulerScore("enfants", e, 2500, jeton);
+  roulerScore("adultes", a, 3600, jeton);
+  setTimeout(() => { if (jeton === victoireJeton) monterPodium(e, a); }, 4100);
+}
+
+function roulerScore(equipe, valeurFinale, duree, jeton) {
+  const el = $("place-" + equipe).querySelector(".place-score");
+  el.classList.add("roule");
+  const t0 = performance.now();
+  const finRapide = duree - 900;   // dernière ligne droite : la roue ralentit
+  let valeur = 0, depart = 0, distance = 0;
+
+  function frame(maintenant) {
+    if (jeton !== victoireJeton || ecranActuel !== "victoire") { el.classList.remove("roule"); return; }
+    const t = maintenant - t0;
+    if (t < finRapide) {
+      // défilement très rapide de 0 à 100, en boucle
+      valeur = (valeur + 9) % 101;
+      el.textContent = valeur;
+      requestAnimationFrame(frame);
+    } else if (t < duree) {
+      // décélération calculée pour tomber pile sur le vrai score
+      if (!distance) {
+        depart = valeur;
+        const cible = ((valeurFinale % 101) + 101) % 101;
+        distance = 202 + ((cible - depart + 101) % 101); // deux tours puis la bonne case
+      }
+      const u = (t - finRapide) / 900;
+      const frein = 1 - Math.pow(1 - u, 3);
+      el.textContent = Math.round(depart + frein * distance) % 101;
+      requestAnimationFrame(frame);
+    } else {
+      el.textContent = valeurFinale;          // le vrai score, enfin dévoilé
+      el.classList.remove("roule");
+      el.classList.add("verrouille");
+      sons.points();
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function monterPodium(e, a) {
+  const gagnant = e > a ? "enfants" : (a > e ? "adultes" : null);
+  const hauteurs = gagnant ? { gagne: 34, perd: 20 } : { gagne: 27, perd: 27 };
+
+  for (const eq of ["enfants", "adultes"]) {
+    const place = $("place-" + eq);
+    const estGagnant = gagnant === eq;
+    place.querySelector(".place-bloc").style.setProperty(
+      "--h", (gagnant ? (estGagnant ? hauteurs.gagne : hauteurs.perd) : hauteurs.gagne) + "vh");
+    place.querySelector(".place-rang").textContent = gagnant ? (estGagnant ? "1" : "2") : "1";
+    place.classList.add("monte");
+    if (estGagnant || !gagnant) place.classList.add("gagnant");
+  }
+
+  sons.rideau(); // frou-frou de la montée du podium
+  setTimeout(() => {
+    const titre = $("victoire-titre");
+    let texte, couleur;
+    if (gagnant) {
+      texte = "VICTOIRE DES " + CONFIG.equipes[gagnant].nom + " !";
+      couleur = CONFIG.equipes[gagnant].couleur;
+    } else {
+      texte = "ÉGALITÉ PARFAITE !";
+      couleur = "#ffd24a";
+    }
+    $("victoire-entete").textContent = `🏆 ENFANTS ${e} — ${a} PARENTS 🏆`;
+    titre.textContent = texte;
+    titre.style.color = couleur;
+    titre.style.textShadow = `0 0 40px ${couleur}`;
+    titre.classList.add("montre");
+    $("victoire-mascotte").classList.add("visible");
+    sons.victoire();
+    lancerConfettis();
+  }, 900);
 }
 
 function pluieConfettis(nombre, intervalle, encoreActif) {

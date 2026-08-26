@@ -518,11 +518,99 @@ html, body {
   100% { transform: translateY(-14vh) scale(1); opacity: 0; }
 }
 
-/* ====== ÉCRAN VICTOIRE ====== */
-#ecran-victoire { justify-content: center; gap: 3vh; z-index: 70; background: rgba(8, 0, 25, .9); }
-#victoire-trophee { font-size: 18vh; animation: flotte 2s ease-in-out infinite; }
-#victoire-titre { font-family: var(--font-titre); font-size: 10vh; text-align: center; line-height: 1.1; }
-#victoire-score { font-family: var(--font-titre); font-size: 5vh; color: var(--or); }
+/* ====== ÉCRAN VICTOIRE : LE PODIUM ====== */
+#ecran-victoire {
+  justify-content: flex-end; gap: 0; z-index: 70;
+  background: radial-gradient(ellipse 70% 50% at 50% 100%, rgba(255, 210, 74, .16), transparent 65%),
+              rgba(8, 0, 25, .94);
+  padding-bottom: 3vh;
+}
+#victoire-entete {
+  font-family: var(--font-titre); font-size: 5.5vh; color: var(--or);
+  letter-spacing: .06em; text-align: center;
+  text-shadow: 0 0 40px rgba(255, 210, 74, .65);
+  margin-bottom: auto; margin-top: 5vh;
+  animation: tour-pop .5s ease;
+}
+#podium { display: flex; align-items: flex-end; justify-content: center; gap: 7vw; }
+.place { display: flex; flex-direction: column; align-items: center; position: relative; }
+.place-couronne {
+  font-size: 7vh; line-height: 1;
+  transform: scale(0) translateY(2vh); opacity: 0;
+  height: 8vh;
+}
+.place.gagnant .place-couronne { animation: couronne-tombe .7s cubic-bezier(.3, 1.7, .5, 1) forwards; }
+@keyframes couronne-tombe {
+  0%   { transform: scale(2.4) translateY(-14vh) rotate(-25deg); opacity: 0; }
+  60%  { opacity: 1; }
+  100% { transform: scale(1) translateY(0) rotate(0); opacity: 1; }
+}
+.place-icone { font-size: 9vh; line-height: 1; animation: flotte 2.8s ease-in-out infinite; }
+.place-score {
+  font-family: var(--font-titre); font-size: 9.5vh; line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 30px currentColor;
+}
+#place-enfants .place-score, #place-enfants .place-nom { color: var(--bleu-enfants); }
+#place-adultes .place-score, #place-adultes .place-nom { color: var(--rose-parents); }
+.place-score.roule { animation: score-secoue .09s linear infinite; }
+@keyframes score-secoue {
+  0% { transform: translateY(0); } 25% { transform: translateY(-.5vh); }
+  50% { transform: translateY(.3vh); } 75% { transform: translateY(-.2vh); } 100% { transform: translateY(0); }
+}
+.place-score.verrouille { animation: score-clac .45s cubic-bezier(.3, 1.8, .5, 1); }
+@keyframes score-clac {
+  0% { transform: scale(1.8); filter: brightness(2.5); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+.place-bloc {
+  width: 24vw; height: var(--h, 0vh);
+  margin-top: 3.5vh;
+  border-radius: .8vh .8vh 0 0;
+  position: relative; overflow: hidden;
+  transition: height 1.1s cubic-bezier(.25, 1.5, .45, 1);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding-top: 2.2vh;
+}
+/* Arête supérieure éclairée : donne l'épaisseur du bloc */
+#place-enfants .place-bloc {
+  background: linear-gradient(160deg, #0f6f8c 0%, #06485e 55%, #032c3c 100%);
+  box-shadow: inset 0 1.1vh 0 rgba(180, 245, 255, .45), inset -2.5vh 0 5vh rgba(0, 0, 0, .5),
+              0 0 40px rgba(0, 217, 255, .25);
+}
+#place-adultes .place-bloc {
+  background: linear-gradient(160deg, #8c1550 0%, #5e0a35 55%, #3c0521 100%);
+  box-shadow: inset 0 1.1vh 0 rgba(255, 190, 220, .45), inset -2.5vh 0 5vh rgba(0, 0, 0, .5),
+              0 0 40px rgba(255, 46, 136, .25);
+}
+.place.gagnant .place-bloc {
+  box-shadow: inset 0 1.1vh 0 #ffd24a, inset -2.5vh 0 5vh rgba(0, 0, 0, .45),
+              0 0 60px rgba(255, 210, 74, .6);
+}
+.place-nom {
+  font-family: var(--font-titre); font-size: 3.2vh; letter-spacing: .04em;
+  position: relative; z-index: 1;
+}
+.place-rang {
+  font-family: var(--font-titre); font-size: 11vh; line-height: 1;
+  color: rgba(255, 255, 255, .13);
+  position: absolute; bottom: -1.5vh; left: 0; right: 0; text-align: center;
+  opacity: 0; transition: opacity .6s ease .55s;
+}
+.place.monte .place-rang { opacity: 1; }
+.place.gagnant .place-rang { color: rgba(255, 210, 74, .32); }
+#victoire-titre {
+  font-family: var(--font-titre); font-size: 6.5vh; text-align: center; line-height: 1.1;
+  min-height: 8vh; margin-top: 2.5vh;
+}
+#victoire-titre.montre { animation: resultat-pop .6s cubic-bezier(.3, 1.6, .5, 1); }
+#victoire-mascotte {
+  position: fixed; bottom: 0; left: 3vw; height: 30vh;
+  filter: drop-shadow(0 1vh 2vh rgba(0,0,0,.5));
+  transform: translateY(40vh); transition: transform .7s cubic-bezier(.3, 1.5, .5, 1);
+  transform-origin: bottom center;
+}
+#victoire-mascotte.visible { transform: translateY(0); animation: mascotte-danse 1.4s ease-in-out infinite; }
 .confetti {
   position: fixed; top: -5vh;
   width: 1.6vh; height: 2.4vh;
@@ -835,9 +923,6 @@ html, body {
 @keyframes mascotte-entre { from { transform: translateY(30vh); } to { transform: translateY(0); } }
 #resultat-mascotte { height: 30vh; display: none; filter: drop-shadow(0 1vh 2vh rgba(0,0,0,.5)); }
 #resultat-mascotte.visible { display: block; animation: resultat-pop .5s cubic-bezier(.3,1.6,.5,1) .2s backwards; }
-#victoire-mascottes { display: flex; gap: 4vw; align-items: flex-end; }
-#victoire-mascottes img { height: 30vh; filter: drop-shadow(0 1vh 2vh rgba(0,0,0,.5)); animation: mascotte-danse 1.4s ease-in-out infinite; }
-#victoire-mascottes img:last-child { animation-delay: .7s; }
 </style>
 </head>
 <body>
@@ -920,13 +1005,29 @@ html, body {
 
 <!-- ÉCRAN VICTOIRE -->
 <div id="ecran-victoire" class="ecran">
-  <div id="victoire-trophee">🏆</div>
-  <div id="victoire-titre"></div>
-  <div id="victoire-score"></div>
-  <div id="victoire-mascottes">
-    <img src="images/lilou-saut.png" alt="" onerror="this.style.display='none'">
-    <img src="images/lilou-coeur.png" alt="" onerror="this.style.display='none'">
+  <div id="victoire-entete">🏆 ET LE GAGNANT EST… 🏆</div>
+  <div id="podium">
+    <div class="place" id="place-enfants">
+      <div class="place-couronne">👑</div>
+      <div class="place-icone">🧒</div>
+      <div class="place-score">0</div>
+      <div class="place-bloc">
+        <span class="place-nom">ENFANTS</span>
+        <span class="place-rang"></span>
+      </div>
+    </div>
+    <div class="place" id="place-adultes">
+      <div class="place-couronne">👑</div>
+      <div class="place-icone">🧑</div>
+      <div class="place-score">0</div>
+      <div class="place-bloc">
+        <span class="place-nom">PARENTS</span>
+        <span class="place-rang"></span>
+      </div>
+    </div>
   </div>
+  <div id="victoire-titre"></div>
+  <img id="victoire-mascotte" src="images/lilou-saut.png" alt="" onerror="this.style.display='none'">
 </div>
 
 <!-- DÉFI SURPRISE -->
@@ -1057,7 +1158,7 @@ html, body {
 
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <!-- Le ?v= force le navigateur à recharger les fichiers après une mise à jour -->
-<script src="cartes.js?v=12"></script>
-<script src="app.js?v=12"></script>
+<script src="cartes.js?v=13"></script>
+<script src="app.js?v=13"></script>
 </body>
 </html>
