@@ -221,6 +221,18 @@ button:disabled { opacity: .35; }
   <div id="liste-cartes"></div>
 
   <div style="background:rgba(0,0,0,.35);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-weight:900;font-size:15px;color:#ffd24a">🥁 Défis surprise</div>
+    <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.4">
+      Tirés au hasard quand tu appuies sur le bouton « DÉFI SURPRISE ».
+    </div>
+    <div id="liste-defis" style="display:flex;flex-direction:column;gap:8px"></div>
+    <div style="display:flex;gap:8px">
+      <button id="btn-ajout-defi" class="bleu" style="flex:1;font-size:13px;padding:10px">➕ Ajouter un défi</button>
+      <button id="btn-sauver-defis" class="vert" style="flex:1;font-size:13px;padding:10px">💾 Enregistrer</button>
+    </div>
+  </div>
+
+  <div style="background:rgba(0,0,0,.35);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px">
     <div style="font-weight:900;font-size:15px;color:#ffd24a">💾 Mes jeux</div>
     <div id="jeu-actif" style="font-size:13px;color:rgba(255,255,255,.7)"></div>
     <div style="display:flex;gap:8px">
@@ -724,8 +736,63 @@ function rendreCartes() {
     ligne.appendChild(ed);
     liste.appendChild(ligne);
   }
+  rendreDefis();
   rendreJeux();
 }
+
+/* ------------------------------------------------ Défis surprise */
+
+let defisBrouillon = null;   // liste en cours d'édition (null = suivre l'écran)
+
+function rendreDefis(force) {
+  if (!catalogue) return;
+  if (defisBrouillon === null) {
+    defisBrouillon = (catalogue.defisSurprise || []).slice();
+    force = true;
+  }
+  const zone = $("liste-defis");
+  // Édition en cours : on ne redessine pas (ça ferait perdre le curseur)
+  if (!force && zone.children.length) return;
+  zone.innerHTML = "";
+  defisBrouillon.forEach((texte, i) => {
+    const ligne = document.createElement("div");
+    ligne.style.cssText = "display:flex;gap:6px;align-items:flex-start";
+    const champ = document.createElement("textarea");
+    champ.value = texte;
+    champ.rows = 2;
+    champ.style.cssText = "flex:1;border-radius:8px;border:1px solid #3a3a55;background:rgba(0,0,0,.45);color:#fff;padding:8px;font-family:inherit;font-size:13px;outline:none;resize:vertical;user-select:text;-webkit-user-select:text";
+    champ.addEventListener("input", () => { defisBrouillon[i] = champ.value; });
+    const suppr = document.createElement("button");
+    suppr.textContent = "🗑";
+    suppr.className = "rouge";
+    suppr.style.cssText = "font-size:14px;padding:8px 10px";
+    suppr.addEventListener("click", () => {
+      defisBrouillon.splice(i, 1);
+      rendreDefis(true);
+    });
+    ligne.appendChild(champ); ligne.appendChild(suppr);
+    zone.appendChild(ligne);
+  });
+  if (!defisBrouillon.length) {
+    zone.innerHTML = "<div style='font-size:12px;color:rgba(255,255,255,.5)'>Aucun défi. Ajoutes-en au moins un !</div>";
+  }
+}
+
+$("btn-ajout-defi").addEventListener("click", () => {
+  if (defisBrouillon === null) defisBrouillon = [];
+  defisBrouillon.push("");
+  rendreDefis(true);
+  const champs = $("liste-defis").querySelectorAll("textarea");
+  if (champs.length) champs[champs.length - 1].focus();
+});
+
+$("btn-sauver-defis").addEventListener("click", () => {
+  const liste = (defisBrouillon || []).map(t => t.trim()).filter(Boolean);
+  if (!liste.length) { notifier("⚠ Il faut au moins un défi"); return; }
+  envoyer("majDefis", { liste });
+  defisBrouillon = null;   // on repart de la liste confirmée par l'écran
+  notifier("✔ " + liste.length + " défis enregistrés");
+});
 
 /* ------------------------------------------------ Mes jeux (configs nommées) */
 
@@ -794,6 +861,8 @@ $("btn-exporter").addEventListener("click", () => {
     "const CONFIG = " + JSON.stringify({
       equipes: catalogue.equipes,
       premierTour: catalogue.premierTour,
+      scoresSecretsDernieresCartes: catalogue.scoresSecretsDernieresCartes,
+      defisSurprise: catalogue.defisSurprise || [],
       cartes: catalogue.cartes,
     }, null, 2) + ";\n";
   const blob = new Blob([contenu], { type: "text/javascript" });

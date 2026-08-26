@@ -159,7 +159,13 @@ aux petits !). Tu peux aussi refaire crier une équipe (son score est remplacé)
 du téléphone) → roulement de tambour, l'écran tremble… et PAF, un défi surprise
 tiré au hasard s'affiche avec Lilou ! Le défi reste affiché jusqu'à ce que tu
 rappuies sur `S` (ou le bouton) — le jeu reprend exactement où il en était.
-La liste des défis se modifie en haut de `cartes.js` (champ `defisSurprise`).
+
+**Modifier les défis** : onglet 🗂 Cartes du téléphone, section « 🥁 Défis
+surprise ». Tu peux réécrire chaque défi, en supprimer (🗑), en ajouter
+(➕) puis « 💾 Enregistrer ». Comme les cartes, ils sont sauvegardés sur
+l'ordinateur, enregistrés avec tes jeux nommés et inclus dans le fichier
+`cartes.js` téléchargé. (Ils restent aussi modifiables directement dans
+`cartes.js`, champ `defisSurprise`.)
 
 > La connexion passe par un relais internet (MQTT) : peu importe que le téléphone
 > soit en 4G et l'ordinateur en Wi-Fi, il faut juste que les deux aient internet.

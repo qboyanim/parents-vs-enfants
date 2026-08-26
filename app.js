@@ -1452,6 +1452,7 @@ function envoyerCartes() {
     premierTour: CONFIG.premierTour,
     cartes: CONFIG.cartes,
     defisSurprise: CONFIG.defisSurprise || [],
+    scoresSecretsDernieresCartes: CONFIG.scoresSecretsDernieresCartes,
     jeux: Object.keys(jeux).map(nom => ({ nom, date: jeux[nom].date })).sort((a, b) => b.date - a.date),
     jeuActif,
   }, true);
@@ -1466,6 +1467,7 @@ function executerCommande(d) {
     case "hello": envoyerEtat(); envoyerCartes(); return;
     case "ping": return;
     case "majCarte": majCarte(d); return;
+    case "majDefis": majDefis(d.liste); return;
     case "resetCartes": resetCartes(); return;
     case "sauverJeu": sauverJeu(d.nom); return;
     case "chargerJeu": chargerJeu(d.nom); return;
@@ -1516,13 +1518,15 @@ const CLE_JEUX = "pve-jeux-v1";         // jeux nommés : { nom: { date, cartes 
 const CLE_JEU_ACTIF = "pve-jeu-actif";
 const CHAMPS_EDITABLES = ["texte", "consigne", "reponse", "indice", "secret", "musique", "musique2", "youtube", "youtube2", "video", "propositions"];
 const CHAMPS_CARTE = ["type", "points", "perte", "timer", "effet", "valeur"];
-let CARTES_ORIGINALES = null; // instantané du cartes.js d'origine
+let CARTES_ORIGINALES = null;  // instantané du cartes.js d'origine
+let DEFIS_ORIGINAUX = null;    // idem pour la liste des défis surprise
 let jeuActif = null;
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 
 function chargerModifsCartes() {
   CARTES_ORIGINALES = clone(CONFIG.cartes);
+  DEFIS_ORIGINAUX = clone(CONFIG.defisSurprise || []);
   jeuActif = localStorage.getItem(CLE_JEU_ACTIF) || null;
   // Les anciens formats stockaient le deck sans sa base : impossible de savoir
   // ce qui était une modification. On repart du cartes.js à jour (les jeux
@@ -1535,6 +1539,10 @@ function chargerModifsCartes() {
   // tout le reste vient du cartes.js à jour — les nouveautés arrivent donc
   // automatiquement sans écraser les personnalisations.
   CONFIG.cartes = fusionnerDecks(stocke.base, stocke.deck, CARTES_ORIGINALES);
+  // Défis surprise : la liste personnalisée gagne, sinon celle du cartes.js
+  if (stocke.defis && JSON.stringify(stocke.defis) !== JSON.stringify(stocke.defisBase)) {
+    CONFIG.defisSurprise = clone(stocke.defis);
+  }
   sauverDeck();
 }
 
@@ -1566,8 +1574,22 @@ function fusionnerDecks(base, deck, nouvelleBase) {
 
 function sauverDeck() {
   try {
-    localStorage.setItem(CLE_CARTES, JSON.stringify({ base: CARTES_ORIGINALES, deck: CONFIG.cartes }));
+    localStorage.setItem(CLE_CARTES, JSON.stringify({
+      base: CARTES_ORIGINALES, deck: CONFIG.cartes,
+      defisBase: DEFIS_ORIGINAUX, defis: CONFIG.defisSurprise || [],
+    }));
   } catch (e) {}
+}
+
+// Remplace toute la liste des défis surprise (depuis la télécommande)
+function majDefis(liste) {
+  if (!Array.isArray(liste)) return;
+  CONFIG.defisSurprise = liste
+    .map(t => String(t).trim())
+    .filter(Boolean)
+    .slice(0, 60);
+  sauverDeck();
+  envoyerCartes();
 }
 
 function appliquerModifCarte(n, meta, variantes) {
@@ -1616,6 +1638,7 @@ function resetCartes() {
   try { localStorage.removeItem(CLE_CARTES); localStorage.removeItem(CLE_JEU_ACTIF); } catch (e) {}
   jeuActif = null;
   if (CARTES_ORIGINALES) CONFIG.cartes = clone(CARTES_ORIGINALES);
+  if (DEFIS_ORIGINAUX) CONFIG.defisSurprise = clone(DEFIS_ORIGINAUX);
   envoyerCartes();
   rafraichirMur();
 }
@@ -1633,7 +1656,7 @@ function sauverJeu(nom) {
   nom = String(nom || "").trim().slice(0, 40);
   if (!nom) return;
   const jeux = lireJeux();
-  jeux[nom] = { date: Date.now(), cartes: clone(CONFIG.cartes) };
+  jeux[nom] = { date: Date.now(), cartes: clone(CONFIG.cartes), defis: clone(CONFIG.defisSurprise || []) };
   ecrireJeux(jeux);
   jeuActif = nom;
   try { localStorage.setItem(CLE_JEU_ACTIF, nom); } catch (e) {}
@@ -1644,6 +1667,7 @@ function chargerJeu(nom) {
   const jeu = lireJeux()[nom];
   if (!jeu) return;
   CONFIG.cartes = clone(jeu.cartes);
+  if (jeu.defis) CONFIG.defisSurprise = clone(jeu.defis);
   sauverDeck();
   jeuActif = nom;
   try { localStorage.setItem(CLE_JEU_ACTIF, nom); } catch (e) {}
