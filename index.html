@@ -211,6 +211,20 @@ html, body {
 }
 @keyframes tour-pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 #cartes-restantes { font-size: 1.8vh; color: rgba(255, 255, 255, .5); margin-top: .3vh; }
+#cartes-restantes.secret {
+  color: var(--or); font-weight: 700;
+  animation: clignote 2.2s ease-in-out infinite;
+}
+
+/* Scores masqués pendant le suspense final */
+.panneau-equipe .score.secret {
+  letter-spacing: .04em;
+  animation: score-mystere 1.8s ease-in-out infinite;
+}
+@keyframes score-mystere {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .5; transform: scale(1.07); }
+}
 
 /* ====== MUR DE CARTES ====== */
 #mur {
@@ -937,7 +951,7 @@ html, body {
 <div id="mascotte-coucou"><img src="" alt=""></div>
 
 <!-- TOAST PUBLIC CHANTE -->
-<div id="public-chante"><span>🎤</span><span id="public-chante-texte"></span></div>
+<div id="public-chante"><span id="public-chante-icone">🎤</span><span id="public-chante-texte"></span></div>
 
 <!-- BRUIT-O-MÈTRE -->
 <div id="bruitometre">
@@ -1043,7 +1057,7 @@ html, body {
 
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <!-- Le ?v= force le navigateur à recharger les fichiers après une mise à jour -->
-<script src="cartes.js?v=11"></script>
-<script src="app.js?v=11"></script>
+<script src="cartes.js?v=12"></script>
+<script src="app.js?v=12"></script>
 </body>
 </html>

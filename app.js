@@ -111,6 +111,11 @@ const sons = {
     bruit(.15, 1.1, .1, 900, "bandpass");
     [784, 988, 1175, 1568].forEach((f, i) => bip(f, .9 + i * .1, .35, "triangle", .16));
   },
+  secret() {
+    // Notes descendantes façon « mystère » + souffle feutré
+    [880, 740, 622, 523, 415].forEach((f, i) => bip(f, i * .13, .5, "triangle", .17));
+    bruit(.1, 1.1, .09, 1200, "lowpass");
+  },
   jingle()   { [440, 554, 659, 880].forEach((f, i) => bip(f, i * .09, .25, "square", .12)); },
   bon()      { [523, 659, 784, 1047].forEach((f, i) => bip(f, i * .1, .3, "triangle", .22)); },
   mauvais()  { bip(220, 0, .3, "sawtooth", .2); bip(155, .25, .5, "sawtooth", .2); },
@@ -156,11 +161,27 @@ function construireMur() {
   rafraichirMur();
 }
 
+function cartesRestantes() {
+  return NB_CARTES - Object.keys(etat.utilisees).length;
+}
+
+// 🔒 Suspense final : au-delà du seuil, le public ne voit plus les scores
+function scoresCaches() {
+  const seuil = CONFIG.scoresSecretsDernieresCartes == null ? 10 : CONFIG.scoresSecretsDernieresCartes;
+  return seuil > 0 && cartesRestantes() <= seuil;
+}
+
 function rafraichirMur() {
-  const restantes = NB_CARTES - Object.keys(etat.utilisees).length;
-  $("cartes-restantes").textContent = restantes > 0
-    ? restantes + " carte" + (restantes > 1 ? "s" : "") + " restante" + (restantes > 1 ? "s" : "")
-    : "Toutes les cartes ont été jouées !";
+  const restantes = cartesRestantes();
+  const el = $("cartes-restantes");
+  if (restantes <= 0) {
+    el.textContent = "Toutes les cartes ont été jouées !";
+  } else if (scoresCaches()) {
+    el.textContent = "🔒 SCORES SECRETS — plus que " + restantes + " carte" + (restantes > 1 ? "s" : "") + " !";
+  } else {
+    el.textContent = restantes + " carte" + (restantes > 1 ? "s" : "") + " restante" + (restantes > 1 ? "s" : "");
+  }
+  el.classList.toggle("secret", restantes > 0 && scoresCaches());
   document.querySelectorAll(".carte").forEach(el => {
     const n = +el.dataset.numero;
     const usage = etat.utilisees[n];
@@ -176,9 +197,20 @@ function rafraichirMur() {
   });
 }
 
+let dernierEtatSecret = null;
+
 function rafraichirBandeau() {
-  $("score-enfants").textContent = etat.scores.enfants;
-  $("score-adultes").textContent = etat.scores.adultes;
+  const secret = scoresCaches();
+  // Annonce spectaculaire au moment où les scores se ferment
+  if (dernierEtatSecret === false && secret) {
+    sons.secret();
+    toastGeant("🔒", "SCORES SECRETS JUSQU'À LA FIN !", 3200);
+  }
+  dernierEtatSecret = secret;
+
+  $("score-enfants").textContent = secret ? "???" : etat.scores.enfants;
+  $("score-adultes").textContent = secret ? "???" : etat.scores.adultes;
+  document.querySelectorAll(".panneau-equipe .score").forEach(s => s.classList.toggle("secret", secret));
   $("panneau-enfants").classList.toggle("a-toi", etat.tour === "enfants");
   $("panneau-adultes").classList.toggle("a-toi", etat.tour === "adultes");
   const eq = CONFIG.equipes[etat.tour];
@@ -979,17 +1011,24 @@ function stopperMusique() {
 
 /* ---------------------------------------------------------------- Bonus « le public chante » 🎤 */
 
+// Grande bannière passagère au centre de l'écran
+function toastGeant(icone, texte, duree) {
+  const toast = $("public-chante");
+  $("public-chante-icone").textContent = icone;
+  $("public-chante-texte").textContent = texte;
+  toast.classList.remove("visible");
+  void toast.offsetWidth; // relance l'animation
+  toast.classList.add("visible");
+  clearTimeout(toastGeant.timer);
+  toastGeant.timer = setTimeout(() => toast.classList.remove("visible"), duree || 2000);
+}
+
 function bonusPublic(equipe) {
   if (!CONFIG.equipes[equipe]) return;
   etat.scores[equipe] += 1;
   sons.publicChante();
   pointsFlottants("+1", equipe);
-  const toast = $("public-chante");
-  $("public-chante-texte").textContent = "LE PUBLIC CHANTE ! +1 " + CONFIG.equipes[equipe].icone;
-  toast.classList.remove("visible");
-  void toast.offsetWidth; // relance l'animation
-  toast.classList.add("visible");
-  setTimeout(() => toast.classList.remove("visible"), 2000);
+  toastGeant("🎤", "LE PUBLIC CHANTE ! +1 " + CONFIG.equipes[equipe].icone);
   sauvegarder();
   rafraichirBandeau();
 }
@@ -1268,7 +1307,8 @@ function publier(sousTopic, obj, retenu) {
 function envoyerEtat() {
   const msg = {
     type: "etat",
-    scores: etat.scores,
+    scores: etat.scores,           // toujours les vrais scores : le présentateur doit savoir
+    scoresCaches: scoresCaches(),  // ...mais le public voit « ??? » à l'écran
     tour: etat.tour,
     badges: etat.badges,
     utilisees: etat.utilisees,

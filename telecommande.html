@@ -189,6 +189,10 @@ button:disabled { opacity: .35; }
     </div>
   </div>
 
+  <div id="scores-secrets" style="display:none;text-align:center;font-size:12px;color:#ffd24a;background:rgba(255,210,74,.12);border:1px solid rgba(255,210,74,.5);border-radius:10px;padding:7px">
+    🔒 Le public voit « ??? » — ces scores ne sont visibles que par toi
+  </div>
+
   <button id="tour-bar" data-cmd="tour">🔄 …</button>
 
   <div id="zone"></div>
@@ -347,6 +351,7 @@ function rendre() {
   $("eq-enfants").classList.toggle("a-toi", etat.tour === "enfants");
   $("eq-adultes").classList.toggle("a-toi", etat.tour === "adultes");
   $("tour-bar").textContent = "🔄 Au tour des " + NOMS[etat.tour] + " (toucher pour changer)";
+  $("scores-secrets").style.display = etat.scoresCaches ? "block" : "none";
 
   const z = $("zone");
   z.innerHTML = "";

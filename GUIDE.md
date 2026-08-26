@@ -109,6 +109,21 @@ Une petite boucle arcade douce (générée par l'appli, volume bas) joue sur
 l'écran titre et le mur de cartes, avec fondu d'entrée et de sortie — elle
 s'efface automatiquement pendant les épreuves et les défis surprise.
 
+## 🔒 Suspense final : les scores secrets
+
+Quand il ne reste plus que **10 cartes**, une bannière annonce « 🔒 SCORES
+SECRETS JUSQU'À LA FIN ! » et les scores affichés au public deviennent
+**« ??? »** — plus personne ne sait qui mène jusqu'à l'écran de victoire, qui
+révèle enfin les vrais chiffres. Les gains (+2, −1…) continuent de s'afficher
+en animation : les équipes savent ce qu'elles marquent, mais plus où elles en
+sont !
+
+**Toi, tu vois toujours les vrais scores** sur la télécommande (avec un rappel
+« le public voit ??? »), et tu peux toujours les corriger avec les ±1.
+
+Pour changer le seuil ou désactiver : champ `scoresSecretsDernieresCartes` en
+haut de `cartes.js` (mets `0` pour ne jamais cacher les scores).
+
 ## Autres raccourcis utiles
 
 - `H` (ou « 🎲 Carte au hasard » sur le téléphone) : tire une carte au hasard

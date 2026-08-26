@@ -70,6 +70,12 @@ const CONFIG = {
   // Équipe qui commence
   premierTour: "enfants",
 
+  // 🔒 SUSPENSE FINAL : quand il ne reste plus que ce nombre de cartes,
+  // les scores affichés au public deviennent « ??? » jusqu'à la victoire.
+  // (Le présentateur continue de voir les vrais scores sur la télécommande.)
+  // Mets 0 pour désactiver.
+  scoresSecretsDernieresCartes: 10,
+
   // 🎉 DÉFIS SURPRISE — déclenchés à tout moment par le bouton de la
   // télécommande (ou la touche S) : roulement de tambour… et PAF !
   // Un défi est tiré au hasard dans cette liste. Modifie-la librement.
