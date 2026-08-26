@@ -261,12 +261,14 @@ const CONFIG = {
         texte: "Quel est ce titre, et de quel film vient-il ?",
         consigne: "Levez la main dès que vous savez !",
         reponse: "Libérée, Délivrée — La Reine des Neiges",
+        youtube: "https://www.youtube.com/watch?v=vzgInDxzyGU",
         // musique: "musiques/carte03-enfants.mp3",
       },
       adultes: {
         texte: "Qui chante cette chanson ?",
         consigne: "Levez la main dès que vous savez !",
         reponse: "I Will Survive — Gloria Gaynor",
+        youtube: "https://www.youtube.com/watch?v=6dYWe1c3OyU",
         // musique: "musiques/carte03-adultes.mp3",
       },
     },
@@ -275,12 +277,14 @@ const CONFIG = {
       type: "blindtest", points: 2, timer: 30,
       enfants: {
         texte: "De quel dessin animé vient ce générique ?",
-        reponse: "Pokémon",
+        reponse: "Pokémon (générique saison 1)",
+        youtube: "https://www.youtube.com/watch?v=YhN4oAS3O4c",
         // musique: "musiques/carte07-enfants.mp3",
       },
       adultes: {
         texte: "Quel est ce tube des années 80 ?",
         reponse: "Les Démons de Minuit — Images",
+        youtube: "https://www.youtube.com/watch?v=kjVeown7umM",
         // musique: "musiques/carte07-adultes.mp3",
       },
     },
@@ -290,11 +294,13 @@ const CONFIG = {
       enfants: {
         texte: "Quel est ce titre que tout le monde connaît ?",
         reponse: "Happy — Pharrell Williams",
+        youtube: "https://www.youtube.com/watch?v=ZbZSe6N_BXs",
         // musique: "musiques/carte14-enfants.mp3",
       },
       adultes: {
         texte: "Qui chante cette chanson des années 90 ?",
         reponse: "Freed from Desire — Gala",
+        youtube: "https://www.youtube.com/watch?v=p3l7fgvrEKM",
         // musique: "musiques/carte14-adultes.mp3",
       },
     },
@@ -304,12 +310,10 @@ const CONFIG = {
       commun: {
         texte: "DOUBLE BLIND TEST ! 🎵🎵",
         consigne: "DEUX musiques jouent EN MÊME TEMPS… Trouvez les deux titres ! Les deux équipes jouent.",
-        reponse: "Musique 1 : We Will Rock You — Queen • Musique 2 : Happy — Pharrell (à personnaliser !)",
-        // Mets tes deux musiques (fichiers, boutons 📂 PC, ou liens YouTube) :
-        // musique: "musiques/carte19-musique1.mp3",
-        // musique2: "musiques/carte19-musique2.mp3",
-        // youtube: "",
-        // youtube2: "",
+        reponse: "Musique 1 : We Will Rock You — Queen • Musique 2 : Macarena — Los del Río",
+        youtube: "https://www.youtube.com/watch?v=-tJYN-eG1zk",
+        youtube2: "https://www.youtube.com/watch?v=zWaymcVmJ-A",
+        // Tu peux aussi utiliser des fichiers : musique: "musiques/…mp3", musique2: "…"
       },
     },
 
@@ -317,12 +321,14 @@ const CONFIG = {
       type: "blindtest", points: 2, timer: 30,
       enfants: {
         texte: "De quel dessin animé vient cette musique ?",
-        reponse: "Naruto (à personnaliser selon vos enfants !)",
+        reponse: "Miraculous (le générique !)",
+        youtube: "https://www.youtube.com/watch?v=cMXW7CAGHNg",
         // musique: "musiques/carte26-enfants.mp3",
       },
       adultes: {
         texte: "Qui chante cette chanson française culte ?",
         reponse: "Mistral Gagnant — Renaud",
+        youtube: "https://www.youtube.com/watch?v=_YqzuE-5RE8",
         // musique: "musiques/carte26-adultes.mp3",
       },
     },
@@ -332,12 +338,14 @@ const CONFIG = {
       enfants: {
         texte: "Quel est ce titre du moment ?",
         consigne: "Une chanson que les enfants adorent en ce moment (à personnaliser !)",
-        reponse: "À personnaliser dans cartes.js 😉",
+        reponse: "Petit Génie — Jungeli",
+        youtube: "https://www.youtube.com/watch?v=Q3RR6ffTTBw",
         // musique: "musiques/carte32-enfants.mp3",
       },
       adultes: {
         texte: "Qui chante ce tube des années 2000 ?",
-        reponse: "Moi… Lolita — Alizée (à personnaliser !)",
+        reponse: "Moi… Lolita — Alizée",
+        youtube: "https://www.youtube.com/watch?v=QpbHdIrtpNo",
         // musique: "musiques/carte32-adultes.mp3",
       },
     },
@@ -346,12 +354,14 @@ const CONFIG = {
       type: "blindtest", points: 2, timer: 30,
       enfants: {
         texte: "De quel film vient cette chanson ?",
-        reponse: "Les Minions / Moi, Moche et Méchant",
+        reponse: "Ce rêve bleu — Aladdin",
+        youtube: "https://www.youtube.com/watch?v=g6GnyHc9qNs",
         // musique: "musiques/carte35-enfants.mp3",
       },
       adultes: {
         texte: "Qui chante cette chanson française ?",
         reponse: "Envole-moi — Jean-Jacques Goldman",
+        youtube: "https://www.youtube.com/watch?v=oltptNDHocw",
         // musique: "musiques/carte35-adultes.mp3",
       },
     },
@@ -361,9 +371,8 @@ const CONFIG = {
       commun: {
         texte: "JUST DANCE ! 🕺💃",
         consigne: "Tout le monde debout ! Les deux équipes dansent en même temps — l'équipe la plus motivée gagne les points.",
-        // ⚠️ Colle ici le lien YouTube du Just Dance de ton choix
-        // (modifiable aussi depuis l'onglet Cartes de la télécommande) :
-        youtube: "",
+        // Just Dance Waka Waka — remplace le lien pour changer de danse !
+        youtube: "https://www.youtube.com/watch?v=OobR681KUTo",
         reponse: "L'équipe qui a mis le plus d'ambiance gagne !",
       },
     },

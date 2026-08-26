@@ -210,6 +210,7 @@ html, body {
   animation: tour-pop .5s ease;
 }
 @keyframes tour-pop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+#cartes-restantes { font-size: 1.8vh; color: rgba(255, 255, 255, .5); margin-top: .3vh; }
 
 /* ====== MUR DE CARTES ====== */
 #mur {
@@ -453,10 +454,10 @@ html, body {
   100% { transform: translateX(-50%) scale(.8) translateY(-4vh); opacity: 0; }
 }
 
-/* Vidéo (Just Dance & co) */
+/* Vidéo (Just Dance & co) — dimensionnée pour laisser la place au texte et à la réponse */
 #video-zone {
   display: none;
-  width: min(85vw, 105vh);
+  height: min(44vh, 42vw);
   aspect-ratio: 16 / 9;
   border-radius: 2vh;
   overflow: hidden;
@@ -465,9 +466,14 @@ html, body {
   background: #000;
 }
 #video-zone.visible { display: block; }
+#video-zone.grande { height: min(56vh, 48vw); } /* Just Dance : plus grand */
 #video-zone iframe, #video-zone video { width: 100%; height: 100%; border: 0; display: block; }
 .epreuve-video #epreuve-icone { display: none; }
+.epreuve-video #vinyles { display: none; }
+.epreuve-video #epreuve-centre { gap: 1.6vh; }
 .epreuve-video #epreuve-texte { font-size: 3.6vh; }
+.epreuve-video #epreuve-consigne { font-size: 2.2vh; }
+.epreuve-video #epreuve-reponse { font-size: 3.2vh; padding: 1vh 2vw; }
 
 /* ====== OVERLAY RÉSULTAT ====== */
 #overlay-resultat {
@@ -655,22 +661,25 @@ html, body {
 /* ====== RIDEAU BLIND TEST (cache le clip YouTube) ====== */
 .video-rideau {
   position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1vh;
+  display: none;
+  align-items: center; justify-content: center; flex-direction: column; gap: 1vh;
   background:
     repeating-linear-gradient(45deg, rgba(90, 27, 214, .95) 0 4vh, rgba(67, 22, 168, .95) 4vh 8vh);
   z-index: 2;
   font-family: var(--font-titre); font-size: 7vh;
+  cursor: pointer;
 }
 .video-rideau .note { font-family: var(--font-texte); font-size: 2.2vh; color: rgba(255,255,255,.75); font-weight: 700; }
 #video-zone { position: relative; }
-#video-zone:not(.cache) .video-rideau { display: none; }
+#video-zone.cache > .video-rideau,
+.video-cellule.cache .video-rideau { display: flex; }
 
 /* Double blind test : deux lecteurs côte à côte */
 #video-zone.double {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1vw;
-  width: min(92vw, 160vh);
+  height: min(30vh, 24vw);
   aspect-ratio: 32 / 9;
   background: transparent; border: none; box-shadow: none;
 }
@@ -759,6 +768,7 @@ html, body {
     <div id="indicateur-tour">
       <div class="a-vous">À VOUS DE JOUER</div>
       <div id="tour-equipe">ENFANTS</div>
+      <div id="cartes-restantes"></div>
     </div>
     <div id="panneau-adultes" class="panneau-equipe">
       <div class="icone">🧑</div>

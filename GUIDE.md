@@ -78,10 +78,43 @@ Dès qu'une carte a une musique ou une vidéo, la télécommande affiche :
 ## 🎶 Double blind test
 
 Le type « Double blind test » joue **deux musiques en même temps** — il faut
-trouver les deux titres ! La carte **19** en est un. Remplis `musique` +
-`musique2` (fichiers ou 📂 PC) ou `youtube` + `youtube2` (deux clips côte à
-côte, cachés par des rideaux — `R` révèle tout). `M` lance/met en pause les
-deux en même temps, et la vitesse s'applique aux deux.
+trouver les deux titres ! La carte **19** en est un (We Will Rock You +
+Macarena, prête à jouer). Remplis `musique` + `musique2` (fichiers ou 📂 PC)
+ou `youtube` + `youtube2` (deux clips côte à côte, cachés par des rideaux).
+`M` lance/met en pause les deux **au même volume**. Quand une équipe trouve
+UNE des deux musiques, révèle-la individuellement : bouton « 👁 Révéler
+musique 1 / 2 » sur le téléphone, ou clic sur son rideau à l'écran. `R`
+révèle tout d'un coup.
+
+## 🎵 Blind tests préremplis
+
+Tous les blind tests ont déjà un clip YouTube vérifié (image cachée par le
+rideau, seul le son joue) — modifie les liens dans l'onglet 🗂 Cartes pour
+créer tes variantes :
+
+| Carte | 🧒 Enfants (6-12 ans) | 🧑 Parents (25-45 ans) |
+|---|---|---|
+| 3 | Libérée, Délivrée (La Reine des Neiges) | I Will Survive — Gloria Gaynor |
+| 7 | Générique Pokémon | Les Démons de Minuit — Images |
+| 14 | Happy — Pharrell Williams | Freed from Desire — Gala |
+| 19 | Double : We Will Rock You + Macarena (commun) | |
+| 26 | Générique Miraculous | Mistral Gagnant — Renaud |
+| 32 | Petit Génie — Jungeli | Moi… Lolita — Alizée |
+| 35 | Ce rêve bleu (Aladdin) | Envole-moi — J.-J. Goldman |
+| 39 | Just Dance : Waka Waka (commun, tout le monde danse !) | |
+
+## 🕹 Musique d'ambiance
+
+Une petite boucle arcade douce (générée par l'appli, volume bas) joue sur
+l'écran titre et le mur de cartes, avec fondu d'entrée et de sortie — elle
+s'efface automatiquement pendant les épreuves et les défis surprise.
+
+## Autres raccourcis utiles
+
+- `H` (ou « 🎲 Carte au hasard » sur le téléphone) : tire une carte au hasard
+  quand les équipes n'arrivent pas à se décider.
+- Le mur affiche le **nombre de cartes restantes** ; quand la dernière carte
+  est jouée, l'écran de victoire se lance tout seul.
 
 ## 🥁 Défi surprise
 

@@ -125,6 +125,7 @@ function montrerEcran(nom) {
   document.querySelectorAll(".ecran").forEach(e => e.classList.remove("actif"));
   $("ecran-" + nom).classList.add("actif");
   ecranActuel = nom;
+  majAmbiance();
   envoyerEtat();
 }
 
@@ -150,6 +151,10 @@ function construireMur() {
 }
 
 function rafraichirMur() {
+  const restantes = NB_CARTES - Object.keys(etat.utilisees).length;
+  $("cartes-restantes").textContent = restantes > 0
+    ? restantes + " carte" + (restantes > 1 ? "s" : "") + " restante" + (restantes > 1 ? "s" : "")
+    : "Toutes les cartes ont été jouées !";
   document.querySelectorAll(".carte").forEach(el => {
     const n = +el.dataset.numero;
     const usage = etat.utilisees[n];
@@ -527,6 +532,18 @@ function retourMur(changerTour) {
   rafraichirMur();
   rafraichirBandeau();
   montrerEcran("mur");
+  // Toutes les cartes jouées : place au grand final !
+  if (Object.keys(etat.utilisees).length >= NB_CARTES) {
+    setTimeout(() => { if (ecranActuel === "mur") ecranVictoire(); }, 1600);
+  }
+}
+
+function carteHasard() {
+  if (ecranActuel !== "mur" || carteEnCours) return;
+  const libres = [];
+  for (let n = 1; n <= NB_CARTES; n++) if (!etat.utilisees[n] && CONFIG.cartes[n]) libres.push(n);
+  if (!libres.length) return;
+  choisirCarte(libres[Math.floor(Math.random() * libres.length)]);
 }
 
 /* ---------------------------------------------------------------- Timer */
@@ -588,9 +605,12 @@ function basculerReponse() {
   const visible = rep.classList.toggle("visible");
   if (visible) {
     sons.reveal();
-    // Marque la bonne proposition (duo/carré) et lève le rideau du blind test
+    // Marque la bonne proposition (duo/carré) et lève tous les rideaux
     document.querySelectorAll(".dcc-prop[data-bonne]").forEach(el => el.classList.add("bonne"));
     $("video-zone").classList.remove("cache");
+    document.querySelectorAll(".video-cellule.cache").forEach(c => c.classList.remove("cache"));
+    if (carteEnCours && carteEnCours.rideaux) carteEnCours.rideaux = carteEnCours.rideaux.map(() => false);
+    envoyerEtat();
   }
 }
 
@@ -624,10 +644,11 @@ function creerRideau() {
 function montrerVideo(contenu, typeCarte, numero) {
   const zone = $("video-zone");
   zone.innerHTML = "";
-  zone.classList.remove("cache", "double");
+  zone.classList.remove("cache", "double", "grande");
   lecteursYT = []; lecteurVideo = null; youtubeEnLecture = false;
   const ecran = $("ecran-epreuve");
   const estBlindTest = typeCarte === "blindtest" || typeCarte === "doubleblindtest";
+  if (typeCarte === "video") zone.classList.add("grande");
   let visible = false;
 
   const idsYT = [contenu.youtube, contenu.youtube2]
@@ -642,21 +663,33 @@ function montrerVideo(contenu, typeCarte, numero) {
     const f = creerIframeYT(idsYT[0]);
     zone.appendChild(f);
     lecteursYT.push(f);
-    if (estBlindTest) { zone.appendChild(creerRideau()); zone.classList.add("cache"); }
+    if (estBlindTest) {
+      const rideau = creerRideau();
+      rideau.addEventListener("click", () => leverRideau(1));
+      zone.appendChild(rideau);
+      zone.classList.add("cache");
+      if (carteEnCours) carteEnCours.rideaux = [true];
+    }
     visible = true;
   } else if (idsYT.length >= 2) {
-    // Double blind test : deux lecteurs côte à côte
+    // Double blind test : deux lecteurs côte à côte, chacun sous son rideau
     zone.classList.add("double");
-    idsYT.slice(0, 2).forEach((id) => {
+    if (carteEnCours) carteEnCours.rideaux = [true, true];
+    idsYT.slice(0, 2).forEach((id, i) => {
       const cellule = document.createElement("div");
       cellule.className = "video-cellule";
       const f = creerIframeYT(id);
       cellule.appendChild(f);
-      cellule.appendChild(creerRideau());
+      if (estBlindTest) {
+        const rideau = creerRideau();
+        rideau.querySelector(".note").textContent = "Musique n°" + (i + 1) + " — cliquer pour révéler";
+        rideau.addEventListener("click", () => leverRideau(i + 1));
+        cellule.appendChild(rideau);
+        cellule.classList.add("cache");
+      }
       zone.appendChild(cellule);
       lecteursYT.push(f);
     });
-    if (estBlindTest) zone.classList.add("cache");
     visible = true;
   } else if (contenu.video) {
     resoudreMedia(contenu.video).then((url) => {
@@ -684,9 +717,31 @@ function commandeYoutube(fonction, args) {
   });
 }
 
+// Lève le rideau n°i (1 ou 2) — utile en double blind test quand une seule
+// musique est trouvée. Clic sur le rideau, ou bouton de la télécommande.
+function leverRideau(i) {
+  const zone = $("video-zone");
+  if (zone.classList.contains("double")) {
+    const cellule = zone.querySelectorAll(".video-cellule")[i - 1];
+    if (cellule) cellule.classList.remove("cache");
+  } else {
+    zone.classList.remove("cache");
+  }
+  if (carteEnCours && carteEnCours.rideaux) carteEnCours.rideaux[i - 1] = false;
+  sons.reveal();
+  envoyerEtat();
+}
+
 function basculerMusique() {
   if (lecteursYT.length) {
-    commandeYoutube(youtubeEnLecture ? "pauseVideo" : "playVideo");
+    if (!youtubeEnLecture) {
+      // Volume identique sur tous les lecteurs (aucun ne prend le dessus)
+      commandeYoutube("unMute");
+      commandeYoutube("setVolume", [100]);
+      commandeYoutube("playVideo");
+    } else {
+      commandeYoutube("pauseVideo");
+    }
     youtubeEnLecture = !youtubeEnLecture;
     $("vinyle").classList.toggle("pause", !youtubeEnLecture);
     $("vinyle2").classList.toggle("pause", !youtubeEnLecture);
@@ -698,7 +753,7 @@ function basculerMusique() {
   }
   if (!lecteursAudio.length) return;
   const enPause = lecteursAudio[0].paused;
-  lecteursAudio.forEach(a => { if (enPause) a.play(); else a.pause(); });
+  lecteursAudio.forEach(a => { a.volume = 1; if (enPause) a.play(); else a.pause(); });
   $("vinyle").classList.toggle("pause", !enPause);
   $("vinyle2").classList.toggle("pause", !enPause);
 }
@@ -813,6 +868,7 @@ function nouvellePartie() {
 document.addEventListener("keydown", (e) => {
   if (e.repeat && e.key.toLowerCase() !== "v") return;
   ctx(); // débloque l'audio au premier appui
+  majAmbiance();
 
   const k = e.key.toLowerCase();
 
@@ -890,6 +946,7 @@ document.addEventListener("keydown", (e) => {
     case k === "p" && !!carteEnCours && carteEnCours.validationCommune: validerCommun("adultes"); return;
 
     // ----- Divers
+    case k === "h" && ecranActuel === "mur": carteHasard(); return;
     case k === "c":
       etat.tour = etat.tour === "enfants" ? "adultes" : "enfants";
       sauvegarder(); rafraichirBandeau(); return;
@@ -1055,6 +1112,8 @@ function envoyerEtat() {
       dccMode: carteEnCours.dccMode || null,
       dccPoints: carteEnCours.aDcc ? baremeDcc(carteEnCours.carte) : null,
       propositions: carteEnCours.aDcc ? carteEnCours.contenu.propositions : null,
+      double: carteEnCours.carte.type === "doubleblindtest",
+      rideaux: carteEnCours.rideaux || null,
     } : null,
   };
   publier("etat", msg, true);
@@ -1092,6 +1151,8 @@ function executerCommande(d) {
     case "fichierPC": demanderFichierPC(d); return;
     case "vitesse": appliquerVitesse(d.taux); return;
     case "bonusPublic": bonusPublic(d.equipe); return;
+    case "rideau": leverRideau(+d.i || 1); return;
+    case "carteHasard": carteHasard(); return;
   }
   switch (d.cmd) {
     case "demarrer":  if (ecranActuel === "titre") { montrerEcran("mur"); sons.jingle(); } break;
@@ -1316,6 +1377,7 @@ function toggleDefiSurprise() {
   do { i = Math.floor(Math.random() * liste.length); } while (liste.length > 1 && i === dernierDefi);
   dernierDefi = i;
   defiSurprise = { actif: true, phase: "tambour", texte: liste[i] };
+  arreterAmbiance();
   if (timerInterval) basculerTimer(); // met le chrono d'épreuve en pause
   const el = $("defi-surprise");
   $("defi-texte").textContent = liste[i];
@@ -1339,6 +1401,7 @@ function finirDefiSurprise() {
   defiSurprise = { actif: false, phase: null, texte: "" };
   $("defi-surprise").classList.remove("visible", "tambour", "reveal");
   sons.jingle();
+  majAmbiance();
   envoyerEtat();
 }
 
@@ -1443,6 +1506,81 @@ function resetSansConfirmation() {
   montrerEcran("mur");
 }
 
+/* ---------------------------------------------------------------- Musique d'ambiance arcade 🕹 */
+/* Petite boucle chiptune douce, générée par l'application (aucun fichier).
+   Elle apparaît en fondu sur l'écran titre et le mur, et s'éteint en fondu
+   partout ailleurs. Volume volontairement bas. */
+
+const ambiance = { actif: false, gain: null, interval: null, pas: 0 };
+const AMB_VOLUME = 0.045;
+// Progression Do – Sol – La mineur – Fa (douce et connue), notes en demi-tons MIDI
+const AMB_ACCORDS = [
+  [60, 64, 67, 72], // Do
+  [59, 62, 67, 71], // Sol
+  [57, 60, 64, 69], // La mineur
+  [57, 60, 65, 69], // Fa
+];
+const AMB_BASSES = [36, 43, 45, 41];
+const AMB_MOTIF = [0, 1, 2, 3, 2, 1, 2, 0]; // arpège par accord (8 pas)
+const freqMidi = (m) => 440 * Math.pow(2, (m - 69) / 12);
+
+function noteAmbiance(freq, duree, vol, type) {
+  const c = ctx();
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type || "triangle";
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(0, c.currentTime);
+  g.gain.linearRampToValueAtTime(vol, c.currentTime + 0.03);
+  g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + duree);
+  o.connect(g); g.connect(ambiance.gain);
+  o.start(); o.stop(c.currentTime + duree + 0.05);
+}
+
+function pasAmbiance() {
+  if (!ambiance.actif) return;
+  const pas = ambiance.pas;
+  const accord = AMB_ACCORDS[Math.floor(pas / 8) % 4];
+  // Arpège doux
+  noteAmbiance(freqMidi(accord[AMB_MOTIF[pas % 8]]), 0.5, 0.5, "triangle");
+  // Basse ronde au début de chaque accord
+  if (pas % 8 === 0) noteAmbiance(freqMidi(AMB_BASSES[Math.floor(pas / 8) % 4]), 1.8, 0.7, "sine");
+  // Petit scintillement aléatoire dans l'aigu (rare, pour éviter la monotonie)
+  if (Math.random() < 0.07) noteAmbiance(freqMidi(accord[Math.floor(Math.random() * 4)] + 12), 0.3, 0.22, "square");
+  ambiance.pas = (pas + 1) % 32;
+}
+
+function demarrerAmbiance() {
+  if (ambiance.actif || defiSurprise.actif) return;
+  let c;
+  try { c = ctx(); } catch (e) { return; }
+  if (c.state === "suspended") return; // pas encore de clic / touche : on réessaiera
+  ambiance.actif = true;
+  ambiance.gain = c.createGain();
+  ambiance.gain.gain.setValueAtTime(0.0001, c.currentTime);
+  ambiance.gain.gain.linearRampToValueAtTime(AMB_VOLUME, c.currentTime + 2.5); // fondu d'entrée
+  ambiance.gain.connect(c.destination);
+  ambiance.pas = 0;
+  ambiance.interval = setInterval(pasAmbiance, 270);
+}
+
+function arreterAmbiance() {
+  if (!ambiance.actif) return;
+  ambiance.actif = false;
+  const g = ambiance.gain, itv = ambiance.interval;
+  try {
+    const c = ctx();
+    g.gain.cancelScheduledValues(c.currentTime);
+    g.gain.setValueAtTime(g.gain.value, c.currentTime);
+    g.gain.linearRampToValueAtTime(0.0001, c.currentTime + 1.4); // fondu de sortie
+  } catch (e) {}
+  setTimeout(() => { clearInterval(itv); try { g.disconnect(); } catch (e) {} }, 1600);
+}
+
+function majAmbiance() {
+  if (["titre", "mur"].includes(ecranActuel) && !defiSurprise.actif) demarrerAmbiance();
+  else arreterAmbiance();
+}
+
 /* ---------------------------------------------------------------- Motion design (plateau vivant) */
 
 // Particules qui flottent sur le titre et le mur
@@ -1502,8 +1640,8 @@ if (Object.keys(etat.utilisees).length > 0 || etat.scores.enfants || etat.scores
   montrerEcran("mur");
 }
 
-// Premier clic n'importe où : débloque l'audio
-document.addEventListener("click", () => ctx(), { once: true });
+// Premier clic n'importe où : débloque l'audio et lance l'ambiance
+document.addEventListener("click", () => { ctx(); majAmbiance(); }, { once: true });
 
 // Sur l'écran titre, un clic démarre aussi le jeu
 $("ecran-titre").addEventListener("click", () => {

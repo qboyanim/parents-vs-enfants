@@ -370,6 +370,7 @@ function rendre() {
       g.appendChild(b);
     }
     z.appendChild(g);
+    z.appendChild(bouton("🎲 Carte au hasard !", "violet", () => envoyer("carteHasard"), "width:100%;margin-top:10px"));
     return;
   }
 
@@ -421,6 +422,20 @@ function rendre() {
   if (c.reponse) outils.appendChild(bouton("👁 Réponse", "bleu", () => envoyer("reponse")));
   if (c.media)   outils.appendChild(bouton("▶⏸", "violet", () => envoyer("musique")));
   if (outils.children.length) z.appendChild(outils);
+
+  // Double blind test : révéler chaque musique individuellement
+  if (c.double && c.rideaux && c.rideaux.some(r => r)) {
+    const rid = document.createElement("div");
+    rid.className = "rangee";
+    rid.style.marginTop = "8px";
+    c.rideaux.forEach((leve, i) => {
+      const b = bouton(leve ? "👁 Révéler musique " + (i + 1) : "✔ Musique " + (i + 1) + " révélée",
+        leve ? "or" : "", () => envoyer("rideau", { i: i + 1 }));
+      if (!leve) b.disabled = true;
+      rid.appendChild(b);
+    });
+    z.appendChild(rid);
+  }
 
   // Vitesse de lecture (ralenti / accéléré) + bonus « le public chante »
   if (c.media) {
