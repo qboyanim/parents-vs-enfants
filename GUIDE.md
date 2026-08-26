@@ -116,6 +116,28 @@ s'efface automatiquement pendant les épreuves et les défis surprise.
 - Le mur affiche le **nombre de cartes restantes** ; quand la dernière carte
   est jouée, l'écran de victoire se lance tout seul.
 
+## 🔊 Bruit-o-mètre : qui commence ?
+
+Pour lancer la soirée : touche `B` (ou « 🔊 Bruit-o-mètre » sur le téléphone).
+L'écran affiche deux grandes jauges — **l'équipe qui crie le plus fort gagne
+le droit de commencer la partie !**
+
+1. Au premier lancement, **autorise le micro** sur l'ordinateur (le navigateur
+   le demande une seule fois).
+2. Depuis le téléphone, choisis qui crie en premier : « 🎤 Les ENFANTS
+   crient ! » ou « 🎤 Les PARENTS crient ! » (tu choisis l'ordre — touches
+   `E` / `P` au clavier aussi).
+3. 3… 2… 1… **CRIEZ !** — 10 secondes de mesure, la jauge monte en direct
+   avec le bruit (et tremble quand ça hurle vraiment).
+4. Suspense : roulement de tambour, la jauge **se remplit à fond toute
+   seule**… puis retombe en rebondissant sur le vrai score !
+5. Quand les deux équipes ont crié : couronne 👑 sur la plus bruyante, et
+   **c'est elle qui commence** (le tour est réglé automatiquement). Referme
+   le bruit-o-mètre (`B`, `Échap` ou le bouton) et c'est parti.
+
+En cas d'égalité parfaite, les scores sont remis à zéro : on recrie !
+Tu peux aussi refaire crier une équipe (son score est remplacé).
+
 ## 🥁 Défi surprise
 
 À TOUT MOMENT de la soirée : touche `S` (ou le gros bouton « 🥁 DÉFI SURPRISE »

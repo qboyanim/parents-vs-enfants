@@ -519,6 +519,79 @@ html, body {
   to { transform: translateY(115vh) rotate(720deg); }
 }
 
+/* ====== BRUIT-O-MÈTRE 🔊 ====== */
+#bruitometre {
+  position: fixed; inset: 0;
+  display: none;
+  flex-direction: column; align-items: center; justify-content: center; gap: 2.5vh;
+  z-index: 112;
+  background: radial-gradient(circle, rgba(30, 10, 70, .97), rgba(8, 0, 30, .99));
+  text-align: center;
+}
+#bruitometre.visible { display: flex; }
+#bruit-titre {
+  font-family: var(--font-titre); font-size: 7vh; color: var(--or);
+  text-shadow: 0 0 40px rgba(255, 210, 74, .7);
+}
+#bruit-sous { font-size: 2.6vh; color: rgba(255, 255, 255, .8); }
+#bruit-zone { display: flex; align-items: flex-end; gap: 5vw; }
+
+.jauge { display: flex; flex-direction: column; align-items: center; gap: 1.2vh; position: relative; }
+.jauge-tube {
+  width: 9vw; height: 46vh;
+  border-radius: 3vh;
+  background: rgba(0, 0, 0, .55);
+  border: .5vh solid rgba(255, 255, 255, .25);
+  position: relative; overflow: hidden;
+  box-shadow: inset 0 0 3vh rgba(0, 0, 0, .6);
+}
+#jauge-enfants .jauge-tube { border-color: var(--bleu-enfants); box-shadow: inset 0 0 3vh rgba(0,0,0,.6), 0 0 25px rgba(0,217,255,.35); }
+#jauge-adultes .jauge-tube { border-color: var(--rose-parents); box-shadow: inset 0 0 3vh rgba(0,0,0,.6), 0 0 25px rgba(255,46,136,.35); }
+.jauge-remplissage {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 0%;
+  background: linear-gradient(to top, #3ddc84 0%, #b8e04a 40%, #ffd24a 62%, #ff9f1c 80%, #ff4444 95%);
+  border-radius: 0 0 2.4vh 2.4vh;
+  box-shadow: 0 -1vh 3vh rgba(255, 210, 74, .45);
+}
+.jauge-pic {
+  position: absolute; left: 0; right: 0; bottom: 0%;
+  height: .5vh; background: #fff;
+  box-shadow: 0 0 12px #fff;
+  opacity: 0;
+}
+.jauge-pic.visible { opacity: .9; }
+.jauge.crie .jauge-tube { animation: jauge-tremble .12s linear infinite; }
+@keyframes jauge-tremble {
+  0% { transform: translate(0, 0); } 25% { transform: translate(.3vh, -.2vh); }
+  50% { transform: translate(-.3vh, .2vh); } 75% { transform: translate(.2vh, .3vh); } 100% { transform: translate(0, 0); }
+}
+.jauge-score { font-family: var(--font-titre); font-size: 4.5vh; min-height: 5vh; }
+#jauge-enfants .jauge-score { color: var(--bleu-enfants); }
+#jauge-adultes .jauge-score { color: var(--rose-parents); }
+.jauge-nom { font-family: var(--font-titre); font-size: 3vh; }
+#jauge-enfants .jauge-nom { color: var(--bleu-enfants); }
+#jauge-adultes .jauge-nom { color: var(--rose-parents); }
+.jauge-couronne {
+  position: absolute; top: -7.5vh; left: 50%; transform: translateX(-50%) scale(0);
+  font-size: 6vh;
+}
+.jauge.gagnante .jauge-couronne { animation: couronne-pop .6s cubic-bezier(.3, 1.6, .5, 1) forwards; }
+@keyframes couronne-pop { to { transform: translateX(-50%) scale(1); } }
+
+#bruit-centre { display: flex; flex-direction: column; align-items: center; gap: 1vh; min-width: 22vw; }
+#bruit-compte { font-family: var(--font-titre); font-size: 14vh; line-height: 1; color: #fff; min-height: 15vh; }
+#bruit-compte.urgent { color: #ff4444; animation: pulse-vs .4s ease-in-out infinite; }
+#bruit-message { font-family: var(--font-titre); font-size: 4vh; color: var(--or); min-height: 5vh; }
+#bruit-message.criez { animation: pulse-vs .35s ease-in-out infinite; color: #ff4444; }
+#bruit-statut { font-size: 2.2vh; color: rgba(255, 255, 255, .6); }
+#bruit-mascotte {
+  position: fixed; bottom: 0; right: 3vw; height: 30vh;
+  filter: drop-shadow(0 1vh 2vh rgba(0,0,0,.5));
+  animation: mascotte-danse 1.6s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
 /* ====== BARRE RÉGIE (présentateur) ====== */
 #regie {
   position: fixed; bottom: 0; left: 0; right: 0;
@@ -866,6 +939,32 @@ html, body {
 <!-- TOAST PUBLIC CHANTE -->
 <div id="public-chante"><span>🎤</span><span id="public-chante-texte"></span></div>
 
+<!-- BRUIT-O-MÈTRE -->
+<div id="bruitometre">
+  <div id="bruit-titre">🔊 BRUIT-O-MÈTRE 🔊</div>
+  <div id="bruit-sous">L'équipe qui crie le plus fort commencera la partie !</div>
+  <div id="bruit-zone">
+    <div class="jauge" id="jauge-enfants">
+      <div class="jauge-couronne">👑</div>
+      <div class="jauge-tube"><div class="jauge-remplissage"></div><div class="jauge-pic"></div></div>
+      <div class="jauge-score">—</div>
+      <div class="jauge-nom">🧒 ENFANTS</div>
+    </div>
+    <div id="bruit-centre">
+      <div id="bruit-compte"></div>
+      <div id="bruit-message"></div>
+    </div>
+    <div class="jauge" id="jauge-adultes">
+      <div class="jauge-couronne">👑</div>
+      <div class="jauge-tube"><div class="jauge-remplissage"></div><div class="jauge-pic"></div></div>
+      <div class="jauge-score">—</div>
+      <div class="jauge-nom">🧑 PARENTS</div>
+    </div>
+  </div>
+  <div id="bruit-statut"></div>
+  <img id="bruit-mascotte" src="images/lilou-megaphone.png" alt="" onerror="this.style.display='none'">
+</div>
+
 <!-- TIMER -->
 <div id="timer">
   <svg viewBox="0 0 100 100">
@@ -944,7 +1043,7 @@ html, body {
 
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <!-- Le ?v= force le navigateur à recharger les fichiers après une mise à jour -->
-<script src="cartes.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="cartes.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

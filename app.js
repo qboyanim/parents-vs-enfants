@@ -1058,6 +1058,15 @@ document.addEventListener("keydown", (e) => {
     return;
   }
 
+  // Bruit-o-mètre : B l'ouvre et le ferme ; E/P lancent la mesure d'une équipe
+  if (k === "b") { toggleBruitometre(); return; }
+  if (bruitometre.actif) {
+    if (k === "e") mesurerBruit("enfants");
+    else if (k === "p") mesurerBruit("adultes");
+    else if (e.key === "Escape") fermerBruitometre();
+    return;
+  }
+
   // Défi surprise : S le déclenche et le termine, où qu'on soit
   if (k === "s") { toggleDefiSurprise(); return; }
   if (defiSurprise.actif) return; // le reste du clavier est gelé pendant le défi
@@ -1267,6 +1276,16 @@ function envoyerEtat() {
     timerRestant, timerTotal,
     timerActif: !!timerInterval,
     defiSurprise: { actif: defiSurprise.actif, phase: defiSurprise.phase },
+    bruitometre: {
+      actif: bruitometre.actif,
+      phase: bruitometre.phase,
+      equipe: bruitometre.equipe,
+      micOK: bruitometre.micOK,
+      scores: {
+        enfants: bruitometre.scores.enfants == null ? null : Math.round(bruitometre.scores.enfants * 100),
+        adultes: bruitometre.scores.adultes == null ? null : Math.round(bruitometre.scores.adultes * 100),
+      },
+    },
     carte: carteEnCours ? {
       numero: carteEnCours.numero,
       type: carteEnCours.carte.type,
@@ -1329,6 +1348,8 @@ function executerCommande(d) {
     case "bonusPublic": bonusPublic(d.equipe); return;
     case "rideau": leverRideau(+d.i || 1); return;
     case "carteHasard": carteHasard(); return;
+    case "bruitometre": toggleBruitometre(); return;
+    case "mesurerBruit": mesurerBruit(d.equipe); return;
   }
   switch (d.cmd) {
     case "demarrer":  if (ecranActuel === "titre") { montrerEcran("mur"); sons.jingle(); } break;
@@ -1610,6 +1631,218 @@ function finirDefiSurprise() {
   envoyerEtat();
 }
 
+/* ---------------------------------------------------------------- Bruit-o-mètre 🔊 */
+/* L'équipe qui crie le plus fort gagne le droit de commencer la partie.
+   Micro de l'ordinateur (sans traitement automatique du gain, pour mesurer
+   la vraie puissance), 10 secondes par équipe, puis suspense : la jauge se
+   remplit à fond sous roulement de tambour avant de retomber sur le score. */
+
+const bruitometre = {
+  actif: false,
+  phase: "attente",            // attente | prepare | mesure | suspense
+  equipe: null,
+  scores: { enfants: null, adultes: null },  // 0..1
+  micOK: false, demande: false,
+  flux: null, analyseur: null, tampon: null,
+  niveau: 0, pic: 0,
+  tPhase: 0,
+};
+
+function toggleBruitometre() {
+  if (bruitometre.actif) { fermerBruitometre(); return; }
+  bruitometre.actif = true;
+  bruitometre.phase = "attente";
+  bruitometre.equipe = null;
+  bruitometre.scores = { enfants: null, adultes: null };
+  bruitometre.niveau = 0; bruitometre.pic = 0;
+  arreterAmbiance();
+  $("bruitometre").classList.add("visible");
+  $("bruit-compte").textContent = "";
+  $("bruit-message").textContent = "";
+  document.querySelectorAll(".jauge").forEach(j => j.classList.remove("gagnante", "crie"));
+  for (const eq of ["enfants", "adultes"]) {
+    const j = $("jauge-" + eq);
+    j.querySelector(".jauge-remplissage").style.height = "0%";
+    j.querySelector(".jauge-score").textContent = "—";
+    j.querySelector(".jauge-pic").classList.remove("visible");
+  }
+  majStatutBruit("Choisis l'équipe qui crie depuis la télécommande (ou touches E / P)");
+  demanderMicro();
+  sons.jingle();
+  requestAnimationFrame(boucleBruit);
+  envoyerEtat();
+}
+
+function fermerBruitometre() {
+  bruitometre.actif = false;
+  $("bruitometre").classList.remove("visible");
+  if (bruitometre.flux) {
+    bruitometre.flux.getTracks().forEach(t => t.stop());
+    bruitometre.flux = null;
+  }
+  bruitometre.micOK = false;
+  bruitometre.demande = false;
+  majAmbiance();
+  envoyerEtat();
+}
+
+function majStatutBruit(txt) {
+  $("bruit-statut").textContent = txt;
+}
+
+function demanderMicro() {
+  if (bruitometre.micOK || bruitometre.demande) return;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    majStatutBruit("❌ Micro indisponible dans ce navigateur");
+    return;
+  }
+  bruitometre.demande = true;
+  majStatutBruit("🎤 Autorise le micro sur l'ordinateur…");
+  navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+  }).then((flux) => {
+    const c = ctx();
+    c.resume();
+    bruitometre.flux = flux;
+    const source = c.createMediaStreamSource(flux);
+    bruitometre.analyseur = c.createAnalyser();
+    bruitometre.analyseur.fftSize = 1024;
+    source.connect(bruitometre.analyseur);
+    bruitometre.tampon = new Uint8Array(bruitometre.analyseur.fftSize);
+    bruitometre.micOK = true;
+    majStatutBruit("🎤 Micro prêt ! Choisis l'équipe qui crie (télécommande, ou touches E / P)");
+    envoyerEtat();
+  }).catch(() => {
+    bruitometre.demande = false;
+    majStatutBruit("❌ Micro refusé — autorise-le dans le navigateur puis rouvre le bruit-o-mètre");
+    envoyerEtat();
+  });
+}
+
+function mesurerBruit(equipe) {
+  if (!bruitometre.actif || bruitometre.phase !== "attente" || !CONFIG.equipes[equipe]) return;
+  if (!bruitometre.micOK) { demanderMicro(); return; }
+  bruitometre.equipe = equipe;
+  bruitometre.phase = "prepare";
+  bruitometre.tPhase = performance.now();
+  bruitometre.niveau = 0; bruitometre.pic = 0;
+  $("jauge-" + equipe).querySelector(".jauge-score").textContent = "…";
+  majStatutBruit("");
+  envoyerEtat();
+}
+
+function niveauMicro() {
+  if (!bruitometre.micOK) return 0;
+  bruitometre.analyseur.getByteTimeDomainData(bruitometre.tampon);
+  let somme = 0;
+  for (let i = 0; i < bruitometre.tampon.length; i++) {
+    const v = (bruitometre.tampon[i] - 128) / 128;
+    somme += v * v;
+  }
+  const rms = Math.sqrt(somme / bruitometre.tampon.length);
+  return Math.min(1, Math.pow(rms * 2.6, 0.75));
+}
+
+function boucleBruit(maintenant) {
+  const b = bruitometre;
+  if (!b.actif) return;
+  const compte = $("bruit-compte"), message = $("bruit-message");
+  const jauge = b.equipe ? $("jauge-" + b.equipe) : null;
+  const ecoule = maintenant - b.tPhase;
+
+  if (b.phase === "prepare") {
+    const n = 3 - Math.floor(ecoule / 800);
+    if (compte.textContent !== String(n) && n >= 1) { compte.textContent = n; sons.tic(); }
+    compte.classList.remove("urgent");
+    message.textContent = CONFIG.equipes[b.equipe].nom + ", préparez-vous…";
+    message.classList.remove("criez");
+    if (ecoule >= 2400) {
+      b.phase = "mesure";
+      b.tPhase = maintenant;
+      sons.buzzer();
+      envoyerEtat();
+    }
+  } else if (b.phase === "mesure") {
+    const restant = Math.max(0, 10000 - ecoule);
+    const n = Math.ceil(restant / 1000);
+    if (compte.textContent !== String(n)) {
+      compte.textContent = n;
+      if (n <= 3) sons.tic();
+    }
+    compte.classList.toggle("urgent", n <= 3);
+    message.textContent = "CRIEZ !!! 📣";
+    message.classList.add("criez");
+    const cible = niveauMicro();
+    b.niveau += (cible - b.niveau) * (cible > b.niveau ? 0.4 : 0.12);
+    b.pic = Math.max(b.pic, b.niveau);
+    jauge.querySelector(".jauge-remplissage").style.height = (b.niveau * 100) + "%";
+    const pic = jauge.querySelector(".jauge-pic");
+    pic.style.bottom = (b.pic * 100) + "%";
+    pic.classList.add("visible");
+    jauge.classList.toggle("crie", b.niveau > 0.55);
+    if (ecoule >= 10000) {
+      b.phase = "suspense";
+      b.tPhase = maintenant;
+      jauge.classList.remove("crie");
+      compte.textContent = "";
+      compte.classList.remove("urgent");
+      message.textContent = "Roulement de tambour… 🥁";
+      message.classList.remove("criez");
+      sons.tambour();
+      envoyerEtat();
+    }
+  } else if (b.phase === "suspense") {
+    const remplissage = jauge.querySelector(".jauge-remplissage");
+    const score = Math.max(0.03, b.pic);
+    if (ecoule < 2300) {
+      // La jauge se remplit entièrement toute seule… suspense !
+      const u = ecoule / 2300;
+      const montee = u < .5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
+      remplissage.style.height = (montee * 100) + "%";
+    } else if (ecoule < 3400) {
+      // …puis retombe en rebondissant sur le vrai score
+      const u = (ecoule - 2300) / 1100;
+      const rebond = Math.pow(1 - u, 2) * Math.abs(Math.cos(u * 9));
+      remplissage.style.height = ((score + (1 - score) * rebond) * 100) + "%";
+    } else {
+      remplissage.style.height = (score * 100) + "%";
+      b.scores[b.equipe] = score;
+      jauge.querySelector(".jauge-score").textContent = Math.round(score * 100) + " !";
+      jauge.querySelector(".jauge-pic").classList.remove("visible");
+      sons.reveal(); sons.points();
+      message.textContent = "";
+      b.equipe = null;
+      b.phase = "attente";
+      verdictBruit();
+      envoyerEtat();
+    }
+  }
+  requestAnimationFrame(boucleBruit);
+}
+
+function verdictBruit() {
+  const s = bruitometre.scores;
+  if (s.enfants == null || s.adultes == null) {
+    majStatutBruit("Au tour de l'autre équipe ! (télécommande, ou touches E / P)");
+    return;
+  }
+  const pE = Math.round(s.enfants * 100), pA = Math.round(s.adultes * 100);
+  if (pE === pA) {
+    majStatutBruit("ÉGALITÉ PARFAITE ! Recriez pour vous départager !");
+    bruitometre.scores = { enfants: null, adultes: null };
+    return;
+  }
+  const gagnant = pE > pA ? "enfants" : "adultes";
+  $("jauge-" + gagnant).classList.add("gagnante");
+  $("bruit-message").textContent = "LES " + CONFIG.equipes[gagnant].nom + " COMMENCERONT !";
+  etat.tour = gagnant;
+  sauvegarder();
+  rafraichirBandeau();
+  sons.victoire();
+  pluieConfettis(25, 40, () => bruitometre.actif);
+  majStatutBruit("Ferme le bruit-o-mètre pour lancer la partie 🎬");
+}
+
 /* ---------------------------------------------------------------- Fichiers locaux (musiques / vidéos du PC) */
 /* Les fichiers choisis sont stockés dans le navigateur (IndexedDB) : rien à
    téléverser sur internet, et ça survit au rechargement de la page. */
@@ -1782,7 +2015,7 @@ function arreterAmbiance() {
 }
 
 function majAmbiance() {
-  if (["titre", "mur"].includes(ecranActuel) && !defiSurprise.actif) demarrerAmbiance();
+  if (["titre", "mur"].includes(ecranActuel) && !defiSurprise.actif && !bruitometre.actif) demarrerAmbiance();
   else arreterAmbiance();
 }
 

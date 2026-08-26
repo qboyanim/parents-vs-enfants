@@ -194,6 +194,7 @@ button:disabled { opacity: .35; }
   <div id="zone"></div>
 
   <button id="btn-defi" style="background:linear-gradient(135deg,#b8860b,#8a6a00);font-size:17px;padding:16px">🥁 DÉFI SURPRISE !</button>
+  <button id="btn-bruit" class="violet" style="font-size:15px">🔊 Bruit-o-mètre (qui commence ?)</button>
 
   <div id="bas">
     <button class="or" data-cmd="victoire">🏆 Fin</button>
@@ -349,6 +350,41 @@ function rendre() {
 
   const z = $("zone");
   z.innerHTML = "";
+
+  // --- Bruit-o-mètre actif : il prend la main sur tout le reste ---
+  const bm = etat.bruitometre;
+  $("btn-bruit").textContent = bm && bm.actif ? "⏹ Fermer le bruit-o-mètre" : "🔊 Bruit-o-mètre (qui commence ?)";
+  if (bm && bm.actif) {
+    const info = document.createElement("div");
+    info.className = "carte-info";
+    let etatTxt;
+    if (!bm.micOK) etatTxt = "🎤 En attente du micro : autorise-le sur le grand écran";
+    else if (bm.phase === "prepare") etatTxt = "3… 2… 1… préparez-vous !";
+    else if (bm.phase === "mesure") etatTxt = "📣 " + NOMS[bm.equipe] + " EN TRAIN DE CRIER !";
+    else if (bm.phase === "suspense") etatTxt = "🥁 Roulement de tambour…";
+    else etatTxt = "Choisis l'équipe qui crie (10 secondes chacune) :";
+    info.innerHTML = `<div class="type">🔊 BRUIT-O-MÈTRE</div><div class="txt">${echap(etatTxt)}</div>` +
+      `<div class="csg">Scores — 🧒 ${bm.scores.enfants == null ? "—" : bm.scores.enfants} • 🧑 ${bm.scores.adultes == null ? "—" : bm.scores.adultes}</div>`;
+    z.appendChild(info);
+
+    const enAttente = bm.phase === "attente" && bm.micOK;
+    const rang = document.createElement("div");
+    rang.className = "rangee grosse";
+    rang.style.marginTop = "8px";
+    const bE = bouton("🎤 Les ENFANTS crient !" + (bm.scores.enfants != null ? "\n(" + bm.scores.enfants + " — refaire)" : ""), "bleu", () => envoyer("mesurerBruit", { equipe: "enfants" }));
+    const bA = bouton("🎤 Les PARENTS crient !" + (bm.scores.adultes != null ? "\n(" + bm.scores.adultes + " — refaire)" : ""), "rose", () => envoyer("mesurerBruit", { equipe: "adultes" }));
+    bE.style.whiteSpace = bA.style.whiteSpace = "pre-line";
+    if (!enAttente) { bE.disabled = true; bA.disabled = true; }
+    rang.appendChild(bE); rang.appendChild(bA);
+    z.appendChild(rang);
+
+    if (bm.scores.enfants != null && bm.scores.adultes != null) {
+      const gagnant = bm.scores.enfants > bm.scores.adultes ? "ENFANTS" : "PARENTS";
+      z.appendChild(bouton("👑 Les " + gagnant + " commencent — fermer et jouer !", "vert",
+        () => envoyer("bruitometre"), "width:100%;margin-top:8px;padding:16px"));
+    }
+    return;
+  }
 
   if (etat.ecran === "titre") {
     z.appendChild(bouton("▶ DÉMARRER LA VEILLÉE", "vert", () => envoyer("demarrer"), "padding:22px;font-size:19px;width:100%"));
@@ -734,6 +770,7 @@ $("btn-sauver-jeu").addEventListener("click", () => {
 });
 
 $("btn-defi").addEventListener("click", () => envoyer("defiSurprise"));
+$("btn-bruit").addEventListener("click", () => envoyer("bruitometre"));
 
 function notifier(txt) {
   const n = document.createElement("div");
