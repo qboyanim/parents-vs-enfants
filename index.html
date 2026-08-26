@@ -50,6 +50,54 @@ html, body {
 }
 @keyframes derive { from { background-position: 0 0; } to { background-position: 460px 460px; } }
 
+/* Respiration colorée du plateau */
+#fond { animation: respire-fond 26s ease-in-out infinite; }
+@keyframes respire-fond {
+  0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+  35%      { filter: hue-rotate(14deg) brightness(1.08); }
+  70%      { filter: hue-rotate(-10deg) brightness(.97); }
+}
+
+/* Particules flottantes (créées en JS) */
+.particule {
+  position: fixed; bottom: -6vh;
+  font-size: 2.4vh;
+  pointer-events: none; z-index: 0;
+  opacity: 0;
+  animation: particule-monte linear forwards;
+}
+@keyframes particule-monte {
+  0%   { transform: translateY(0) rotate(0) scale(.7); opacity: 0; }
+  12%  { opacity: .55; }
+  85%  { opacity: .4; }
+  100% { transform: translateY(-112vh) rotate(340deg) scale(1.15); opacity: 0; }
+}
+
+/* Balayage brillant sur une carte de temps en temps */
+.carte .carte-dos::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%);
+  transform: translateX(-130%);
+}
+.carte.brille .carte-dos::after { animation: brille 1.1s ease; }
+@keyframes brille { to { transform: translateX(130%); } }
+
+/* Mascotte qui fait coucou depuis le bord de l'écran */
+#mascotte-coucou {
+  position: fixed; bottom: -46vh; right: 3vw;
+  height: 34vh; z-index: 6;
+  pointer-events: none;
+  transition: bottom 1s cubic-bezier(.3, 1.3, .5, 1);
+  filter: drop-shadow(0 1vh 2vh rgba(0,0,0,.45));
+}
+#mascotte-coucou.visible { bottom: -6vh; }
+#mascotte-coucou img { height: 100%; animation: mascotte-danse 1.6s ease-in-out infinite; }
+@keyframes mascotte-danse {
+  0%, 100% { transform: rotate(-3deg); }
+  50%      { transform: rotate(4deg) translateY(-.8vh); }
+}
+
 .projecteur {
   position: fixed; top: -30vh; width: 34vw; height: 130vh;
   background: linear-gradient(to bottom, rgba(255, 255, 255, .10), transparent 70%);
@@ -71,15 +119,26 @@ html, body {
 .ecran.actif { display: flex; }
 
 /* ====== ÉCRAN TITRE ====== */
-#ecran-titre { justify-content: center; gap: 3vh; text-align: center; }
-#ecran-titre .sous-titre {
-  font-family: var(--font-titre);
-  font-size: 3.2vh; letter-spacing: .35em; color: var(--or);
-  text-shadow: 0 0 20px rgba(255, 210, 74, .6);
+#ecran-titre { justify-content: center; gap: 2vh; text-align: center; }
+#titre-logo {
+  height: 30vh;
+  filter: drop-shadow(0 1.5vh 3vh rgba(0, 0, 0, .5));
+  animation: logo-flotte 4s ease-in-out infinite;
+}
+@keyframes logo-flotte {
+  0%, 100% { transform: translateY(0) rotate(-2deg) scale(1); }
+  50%      { transform: translateY(-1.6vh) rotate(2deg) scale(1.03); }
+}
+#titre-mascotte {
+  position: fixed; bottom: 0; left: 4vw;
+  height: 38vh;
+  filter: drop-shadow(0 1vh 2vh rgba(0,0,0,.45));
+  animation: mascotte-danse 2s ease-in-out infinite;
+  transform-origin: bottom center;
 }
 #titre-principal {
   font-family: var(--font-titre);
-  font-size: 12vh; line-height: 1.05;
+  font-size: 9.5vh; line-height: 1.05;
   text-align: center;
 }
 #titre-principal .enfants { color: var(--bleu-enfants); text-shadow: 0 0 40px rgba(0,217,255,.75), 0 .06em 0 #00518a; }
@@ -469,6 +528,150 @@ html, body {
   background: #222; border: 1px solid #555; border-radius: .8vh;
   padding: .2vh 1vw; font-family: monospace; font-size: 2.2vh; color: var(--or);
 }
+
+/* ====== DUO / CARRÉ / CASH ====== */
+#dcc-choix { display: none; gap: 1.5vw; }
+#dcc-choix.visible { display: flex; }
+.dcc-btn {
+  font-family: var(--font-titre);
+  font-size: 3.4vh;
+  padding: 2vh 3vw;
+  border-radius: 2vh;
+  border: .4vh solid;
+  background: rgba(0, 0, 0, .45);
+  color: #fff; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: .4vh;
+  transition: transform .15s;
+  animation: tour-pop .4s ease backwards;
+}
+.dcc-btn:hover { transform: scale(1.08); }
+.dcc-btn small { font-family: var(--font-texte); font-size: 2vh; font-weight: 700; opacity: .85; }
+.dcc-btn.duo   { border-color: #4da6ff; color: #4da6ff; animation-delay: .05s; }
+.dcc-btn.carre { border-color: var(--or); color: var(--or); animation-delay: .15s; }
+.dcc-btn.cash  { border-color: #ff5c5c; color: #ff5c5c; animation-delay: .25s; }
+#dcc-mode-badge {
+  display: none;
+  font-family: var(--font-titre); font-size: 2.6vh;
+  padding: .4vh 1.6vw; border-radius: 4vh;
+  background: rgba(0,0,0,.5); border: .3vh solid var(--or); color: var(--or);
+}
+#dcc-mode-badge.visible { display: block; }
+#dcc-propositions {
+  display: none;
+  grid-template-columns: repeat(2, minmax(24vw, 34vw));
+  gap: 1.6vh 1.5vw;
+}
+#dcc-propositions.visible { display: grid; }
+.dcc-prop {
+  font-size: 3.4vh; font-weight: 700;
+  padding: 1.6vh 1.5vw;
+  border-radius: 1.6vh;
+  background: rgba(255, 255, 255, .1);
+  border: .3vh solid rgba(255, 255, 255, .4);
+  display: flex; align-items: center; gap: 1vw;
+  animation: texte-entre .4s ease backwards;
+}
+.dcc-prop .lettre {
+  font-family: var(--font-titre);
+  color: var(--or); font-size: 3vh;
+}
+.dcc-prop.bonne { background: rgba(0, 120, 40, .6); border-color: #7CFF9B; }
+
+/* ====== DÉFI SURPRISE ====== */
+#defi-surprise {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center; justify-content: center; flex-direction: column; gap: 3vh;
+  z-index: 115;
+  background: radial-gradient(circle, rgba(120, 40, 190, .96), rgba(50, 5, 90, .98));
+  text-align: center;
+  padding: 0 8vw;
+}
+#defi-surprise.visible { display: flex; }
+#defi-surprise.tambour { animation: secousse .12s linear infinite; }
+@keyframes secousse {
+  0% { transform: translate(0, 0) rotate(0); }
+  25% { transform: translate(.5vw, -.4vh) rotate(.4deg); }
+  50% { transform: translate(-.4vw, .3vh) rotate(-.4deg); }
+  75% { transform: translate(.3vw, .4vh) rotate(.2deg); }
+  100% { transform: translate(-.3vw, -.3vh) rotate(-.2deg); }
+}
+#defi-tambour-icone { font-size: 18vh; animation: pulse-vs .5s ease-in-out infinite; }
+#defi-titre {
+  font-family: var(--font-titre); font-size: 8vh; color: var(--or);
+  text-shadow: 0 0 40px rgba(255, 210, 74, .8);
+  display: none;
+}
+#defi-texte { font-size: 5vh; font-weight: 700; line-height: 1.3; display: none; }
+#defi-surprise.reveal #defi-tambour-icone { display: none; }
+#defi-surprise.reveal #defi-titre { display: block; animation: resultat-pop .5s cubic-bezier(.3,1.6,.5,1); }
+#defi-surprise.reveal #defi-texte { display: block; animation: resultat-pop .5s cubic-bezier(.3,1.6,.5,1) .15s backwards; }
+#defi-mascotte {
+  position: fixed; bottom: 0; right: 4vw; height: 36vh;
+  filter: drop-shadow(0 1vh 2vh rgba(0,0,0,.5));
+  display: none;
+}
+#defi-surprise.reveal #defi-mascotte { display: block; animation: mascotte-surgit .5s cubic-bezier(.3,1.5,.5,1); }
+@keyframes mascotte-surgit { from { transform: translateY(40vh); } to { transform: translateY(0); } }
+#defi-fin-note {
+  position: fixed; bottom: 2vh; left: 50%; transform: translateX(-50%);
+  font-size: 1.9vh; color: rgba(255,255,255,.5);
+}
+
+/* ====== RIDEAU BLIND TEST (cache le clip YouTube) ====== */
+#video-rideau {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 1vh;
+  background:
+    repeating-linear-gradient(45deg, rgba(90, 27, 214, .95) 0 4vh, rgba(67, 22, 168, .95) 4vh 8vh);
+  z-index: 2;
+  font-family: var(--font-titre); font-size: 7vh;
+}
+#video-rideau .note { font-family: var(--font-texte); font-size: 2.2vh; color: rgba(255,255,255,.75); font-weight: 700; }
+#video-zone { position: relative; }
+#video-zone:not(.cache) #video-rideau { display: none; }
+
+/* ====== CHOIX DE FICHIER (déclenché depuis le téléphone) ====== */
+#fichier-overlay {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center; justify-content: center; flex-direction: column; gap: 3vh;
+  background: rgba(5, 0, 25, .93);
+  z-index: 118; text-align: center; padding: 0 10vw;
+}
+#fichier-overlay.visible { display: flex; }
+#fichier-overlay .titre-fichier { font-family: var(--font-titre); font-size: 4.5vh; color: var(--or); }
+#fichier-overlay .detail-fichier { font-size: 2.6vh; color: rgba(255,255,255,.8); }
+#fichier-overlay button {
+  font-family: var(--font-titre); font-size: 4vh;
+  padding: 3vh 5vw; border-radius: 2.5vh;
+  border: .5vh solid var(--or);
+  background: rgba(255, 210, 74, .15); color: var(--or);
+  cursor: pointer;
+}
+#fichier-overlay button:hover { background: rgba(255, 210, 74, .3); }
+#fichier-overlay .annuler-fichier {
+  font-family: var(--font-texte); font-size: 2.2vh;
+  border-color: rgba(255,255,255,.4); color: rgba(255,255,255,.7);
+  background: transparent; padding: 1.2vh 2vw;
+}
+
+/* ====== MASCOTTES DÉCO ====== */
+#epreuve-mascotte {
+  position: fixed; bottom: 0; left: 2.5vw;
+  height: 26vh; z-index: 2;
+  filter: drop-shadow(0 .8vh 1.6vh rgba(0,0,0,.4));
+  animation: mascotte-entre .6s cubic-bezier(.3,1.4,.5,1);
+  transform-origin: bottom center;
+  display: none;
+}
+#epreuve-mascotte.visible { display: block; }
+@keyframes mascotte-entre { from { transform: translateY(30vh); } to { transform: translateY(0); } }
+#resultat-mascotte { height: 30vh; display: none; filter: drop-shadow(0 1vh 2vh rgba(0,0,0,.5)); }
+#resultat-mascotte.visible { display: block; animation: resultat-pop .5s cubic-bezier(.3,1.6,.5,1) .2s backwards; }
+#victoire-mascottes { display: flex; gap: 4vw; align-items: flex-end; }
+#victoire-mascottes img { height: 30vh; filter: drop-shadow(0 1vh 2vh rgba(0,0,0,.5)); animation: mascotte-danse 1.4s ease-in-out infinite; }
+#victoire-mascottes img:last-child { animation-delay: .7s; }
 </style>
 </head>
 <body>
@@ -479,13 +682,14 @@ html, body {
 
 <!-- ÉCRAN TITRE -->
 <div id="ecran-titre" class="ecran actif">
-  <div class="sous-titre">★ LA GRANDE VEILLÉE ★</div>
+  <img id="titre-logo" src="images/logo.png" alt="" onerror="this.style.display='none'">
   <div id="titre-principal">
-    <span class="enfants">ENFANTS</span><br>
-    <span class="vs">VS</span><br>
+    <span class="enfants">ENFANTS</span>
+    <span class="vs">VS</span>
     <span class="parents">PARENTS</span>
   </div>
   <div id="titre-appuyez">Appuyez sur ESPACE pour commencer</div>
+  <img id="titre-mascotte" src="images/lilou-salut.png" alt="" onerror="this.style.display='none'">
   <div id="titre-code"></div>
 </div>
 
@@ -530,9 +734,17 @@ html, body {
     <div id="video-zone"></div>
     <div id="epreuve-texte"></div>
     <div id="epreuve-consigne"></div>
+    <div id="dcc-choix">
+      <button class="dcc-btn duo" data-mode="duo">🎯 DUO<small></small></button>
+      <button class="dcc-btn carre" data-mode="carre">🔲 CARRÉ<small></small></button>
+      <button class="dcc-btn cash" data-mode="cash">💰 CASH<small></small></button>
+    </div>
+    <div id="dcc-mode-badge"></div>
+    <div id="dcc-propositions"></div>
     <div id="epreuve-points"></div>
     <div id="epreuve-reponse"></div>
   </div>
+  <img id="epreuve-mascotte" src="" alt="" onerror="this.classList.remove('visible')">
 </div>
 
 <!-- ÉCRAN VICTOIRE -->
@@ -540,7 +752,32 @@ html, body {
   <div id="victoire-trophee">🏆</div>
   <div id="victoire-titre"></div>
   <div id="victoire-score"></div>
+  <div id="victoire-mascottes">
+    <img src="images/lilou-saut.png" alt="" onerror="this.style.display='none'">
+    <img src="images/lilou-coeur.png" alt="" onerror="this.style.display='none'">
+  </div>
 </div>
+
+<!-- DÉFI SURPRISE -->
+<div id="defi-surprise">
+  <div id="defi-tambour-icone">🥁</div>
+  <div id="defi-titre">⚡ DÉFI SURPRISE ! ⚡</div>
+  <div id="defi-texte"></div>
+  <img id="defi-mascotte" src="images/lilou-megaphone.png" alt="" onerror="this.style.display='none'">
+  <div id="defi-fin-note">Le défi se termine quand le présentateur le décide (touche S ou bouton 📱)</div>
+</div>
+
+<!-- CHOIX DE FICHIER PC -->
+<div id="fichier-overlay">
+  <div class="titre-fichier">📂 FICHIER DEMANDÉ DEPUIS LA TÉLÉCOMMANDE</div>
+  <div class="detail-fichier" id="fichier-detail"></div>
+  <button id="fichier-choisir">📂 Choisir le fichier…</button>
+  <button class="annuler-fichier" id="fichier-annuler">Annuler (Échap)</button>
+  <input type="file" id="fichier-input" style="display:none">
+</div>
+
+<!-- MASCOTTE COUCOU -->
+<div id="mascotte-coucou"><img src="" alt=""></div>
 
 <!-- TIMER -->
 <div id="timer">
@@ -562,6 +799,7 @@ html, body {
   <div id="resultat-icone"></div>
   <div id="resultat-texte"></div>
   <div id="resultat-points"></div>
+  <img id="resultat-mascotte" src="images/lilou-pouce.png" alt="" onerror="this.classList.remove('visible')">
 </div>
 
 <!-- BARRE RÉGIE -->

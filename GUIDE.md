@@ -32,12 +32,44 @@ Le clavier de l'ordinateur continue de fonctionner en parallèle.
 **🗂 Cartes** : le contenu de toutes les cartes, modifiable depuis le téléphone,
 trié par public — 🧒 Enfants / 🧑 Parents / 👥 Communes (les enfants ne tombent
 que sur le contenu enfants, les parents sur le contenu parents ; les communes
-font jouer tout le monde). Touche une carte pour modifier sa question, sa
-réponse, son indice, son lien YouTube… puis « 💾 Enregistrer » : le changement
-est **appliqué immédiatement** et **sauvegardé sur l'ordinateur** (il survit au
-rechargement de la page). Le bouton « ⬇ Télécharger la sauvegarde » te donne un
+font jouer tout le monde). Touche une carte pour modifier :
+
+- son **type d'épreuve** (question, mime, blind test, bonus, vidéo…) — chaque
+  case peut être transformée en n'importe quel type ;
+- ses **points**, sa **perte si raté**, son **chrono** ;
+- sa question, sa réponse, son indice, son secret de mime ;
+- ses **propositions Duo/Carré/Cash** (voir plus bas) ;
+- ses **médias** : colle un lien YouTube, ou touche « 📂 PC » → un gros bouton
+  apparaît sur le grand écran pour choisir un fichier musique/vidéo de
+  l'ordinateur (stocké dans le navigateur, il survit au rechargement).
+
+Puis « 💾 Enregistrer » : le changement est **appliqué immédiatement** et
+**sauvegardé sur l'ordinateur**. « ⬇ Télécharger la sauvegarde » te donne un
 fichier `cartes.js` prêt à remettre dans le projet pour rendre les modifications
 définitives, et « ↩ Rétablir » annule toutes les modifications.
+
+### 💾 Mes jeux (plusieurs configurations)
+
+En bas de l'onglet Cartes : personnalise tes cartes, donne un nom à ta config
+(« Maternelles », « Ados », « Veillée Halloween »…) et « 💾 Enregistrer ».
+Tu peux créer autant de jeux que tu veux et **lancer celui qui correspond à ton
+public** avec « ▶ Lancer ». Les jeux sont stockés sur l'ordinateur de l'écran.
+
+## 🎯 Duo / Carré / Cash
+
+Les questions qui ont des « propositions » déclenchent le choix mythique :
+l'équipe annonce **DUO** (2 choix, moitié des points), **CARRÉ** (4 choix,
+points normaux) ou **CASH** (sans aide, points doublés !). Choisis le mode avec
+les touches `1`/`2`/`3`, un clic sur les boutons de l'écran, ou depuis le
+téléphone. `R` révèle la réponse et surligne la bonne proposition.
+
+## 🥁 Défi surprise
+
+À TOUT MOMENT de la soirée : touche `S` (ou le gros bouton « 🥁 DÉFI SURPRISE »
+du téléphone) → roulement de tambour, l'écran tremble… et PAF, un défi surprise
+tiré au hasard s'affiche avec Lilou ! Le défi reste affiché jusqu'à ce que tu
+rappuies sur `S` (ou le bouton) — le jeu reprend exactement où il en était.
+La liste des défis se modifie en haut de `cartes.js` (champ `defisSurprise`).
 
 > La connexion passe par un relais internet (MQTT) : peu importe que le téléphone
 > soit en 4G et l'ordinateur en Wi-Fi, il faut juste que les deux aient internet.

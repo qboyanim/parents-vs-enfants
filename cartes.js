@@ -36,6 +36,14 @@
    Le type "video" est fait pour les épreuves Just Dance : mets un lien
    YouTube de Just Dance dans le champ youtube et fais danser tout le monde !
 
+   DUO / CARRÉ / CASH : ajoute un champ "propositions" à une question :
+     propositions: ["la BONNE réponse", "piège 1", "piège 2", "piège 3"]
+   (la PREMIÈRE est toujours la bonne ; l'affichage est mélangé).
+   L'équipe choisit alors son mode avant de répondre :
+     DUO   (2 choix)  -> moitié des points
+     CARRÉ (4 choix)  -> points normaux
+     CASH  (sans aide) -> points doublés !
+
    Pour les BONUS / MALUS, ajoute un champ "effet" :
      effet: "double"          -> prochaine épreuve réussie = points x2 (badge x2)
      effet: "vol", valeur: 3  -> vole automatiquement 3 points à l'adversaire
@@ -56,6 +64,24 @@ const CONFIG = {
   // Équipe qui commence
   premierTour: "enfants",
 
+  // 🎉 DÉFIS SURPRISE — déclenchés à tout moment par le bouton de la
+  // télécommande (ou la touche S) : roulement de tambour… et PAF !
+  // Un défi est tiré au hasard dans cette liste. Modifie-la librement.
+  defisSurprise: [
+    "Tout le monde debout ! 30 secondes de danse des canards, MAINTENANT ! 🦆",
+    "Le premier qui apporte un objet ROUGE au présentateur gagne 1 point pour son équipe !",
+    "STATUE ! Plus personne ne bouge… Le premier qui bouge fait perdre 1 point à son équipe !",
+    "Concours de cri de dinosaure : un volontaire par équipe. Le public vote par applaudissements ! 🦖",
+    "Tout le monde échange sa place avec quelqu'un de l'AUTRE équipe. Vous avez 10 secondes !",
+    "Les parents font 10 flexions en criant « LES ENFANTS SONT LES MEILLEURS » ! 💪",
+    "Silence absolu chez les enfants pendant 20 secondes. Réussi = +2 points ! 🤫",
+    "Battle de blagues : un volontaire par équipe. La meilleure blague gagne 1 point ! 🎤",
+    "Toute la salle imite une poule jusqu'à ce que le présentateur crie STOP ! 🐔",
+    "LA OLA ! Toute la salle fait la ola 3 fois de suite, sinon tout le monde perd 1 point ! 🌊",
+    "Chaque équipe fait un câlin collectif géant. L'équipe la plus rapide gagne 1 point ! 🤗",
+    "Le premier qui trouve quelqu'un avec des chaussettes dépareillées gagne 1 point ! 🧦",
+  ],
+
   // ⚠️ REMPLACE CES PRÉNOMS par ceux des animateurs de ton centre !
   // (utilisés dans les cartes 11 et 28)
 
@@ -68,10 +94,12 @@ const CONFIG = {
       enfants: {
         texte: "Combien de pattes possède une araignée ?",
         reponse: "8 pattes",
+        propositions: ["8", "6", "10", "4"],
       },
       adultes: {
         texte: "En quelle année l'Homme a-t-il marché sur la Lune pour la première fois ?",
         reponse: "1969",
+        propositions: ["1969", "1965", "1972", "1958"],
       },
     },
 
@@ -80,10 +108,12 @@ const CONFIG = {
       enfants: {
         texte: "Quel est le plus grand océan du monde ?",
         reponse: "L'océan Pacifique",
+        propositions: ["L'océan Pacifique", "L'océan Atlantique", "L'océan Indien", "L'océan Arctique"],
       },
       adultes: {
         texte: "Combien de temps met la lumière du Soleil pour arriver jusqu'à la Terre ?",
         reponse: "Environ 8 minutes",
+        propositions: ["Environ 8 minutes", "Environ 8 secondes", "Environ 8 heures", "Environ 1 jour"],
       },
     },
 
@@ -92,10 +122,12 @@ const CONFIG = {
       enfants: {
         texte: "Comment s'appelle le poisson bleu qui perd la mémoire dans « Le Monde de Nemo » ?",
         reponse: "Dory",
+        propositions: ["Dory", "Marin", "Bulle", "Perla"],
       },
       adultes: {
         texte: "Quelle est la monnaie utilisée au Japon ?",
         reponse: "Le yen",
+        propositions: ["Le yen", "Le yuan", "Le won", "Le baht"],
       },
     },
 
@@ -104,6 +136,7 @@ const CONFIG = {
       enfants: {
         texte: "Combien y a-t-il de minutes dans une heure et demie ?",
         reponse: "90 minutes",
+        propositions: ["90 minutes", "60 minutes", "120 minutes", "80 minutes"],
       },
       adultes: {
         texte: "Citez 5 pays qui ont une frontière avec la France.",
@@ -117,10 +150,12 @@ const CONFIG = {
       enfants: {
         texte: "De quelle couleur est le sang du poulpe ?",
         reponse: "Bleu !",
+        propositions: ["Bleu", "Rouge", "Vert", "Transparent"],
       },
       adultes: {
         texte: "Combien d'os possède (environ) le corps humain adulte ?",
         reponse: "206 os",
+        propositions: ["206", "186", "226", "156"],
       },
     },
 
@@ -129,11 +164,13 @@ const CONFIG = {
       enfants: {
         texte: "Quelle planète est la plus proche du Soleil ?",
         reponse: "Mercure",
+        propositions: ["Mercure", "Vénus", "Mars", "La Terre"],
       },
       adultes: {
         texte: "En quelle année la première Game Boy est-elle sortie ?",
         consigne: "À 2 ans près !",
         reponse: "1989 (1990 en France)",
+        propositions: ["1989", "1985", "1992", "1995"],
       },
     },
 
@@ -546,6 +583,7 @@ const CONFIG = {
         texte: "Quelle est la capitale de l'Australie ?",
         consigne: "⚠️ 3 points si vous trouvez… mais −2 points si vous vous trompez ! (l'équipe qui a tiré la carte répond seule)",
         reponse: "Canberra ! (et non, ce n'est pas Sydney 😈)",
+        propositions: ["Canberra", "Sydney", "Melbourne", "Perth"],
       },
     },
 

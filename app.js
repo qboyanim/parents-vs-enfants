@@ -68,8 +68,36 @@ function bip(freq, debut, duree, type = "square", vol = 0.18) {
   o.connect(g); g.connect(c.destination);
   o.start(c.currentTime + debut); o.stop(c.currentTime + debut + duree + 0.05);
 }
+function bruit(debut, duree, vol, freqFiltre, typeFiltre) {
+  const c = ctx();
+  const n = Math.floor(c.sampleRate * duree);
+  const buf = c.createBuffer(1, n, c.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = Math.random() * 2 - 1;
+  const s = c.createBufferSource(); s.buffer = buf;
+  const f = c.createBiquadFilter();
+  f.type = typeFiltre || "bandpass";
+  f.frequency.value = freqFiltre || 1800;
+  const g = c.createGain();
+  g.gain.setValueAtTime(vol, c.currentTime + debut);
+  g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + debut + duree);
+  s.connect(f); f.connect(g); g.connect(c.destination);
+  s.start(c.currentTime + debut);
+}
+
 const sons = {
   flip()     { bip(300, 0, .12, "triangle"); bip(520, .09, .15, "triangle"); },
+  tambour()  {
+    // Roulement qui accélère pendant ~2,3 s
+    let t = 0, pas = .1;
+    while (t < 2.3) { bruit(t, .05, .3, 700 + Math.random() * 300); t += pas; pas = Math.max(.026, pas * .93); }
+  },
+  paf()      {
+    // Gros coup + cymbale + petite fanfare
+    bip(150, 0, .35, "sine", .5); bip(60, .02, .4, "sine", .5);
+    bruit(.02, .9, .25, 7000, "highpass");
+    [523, 659, 784, 1047].forEach((f, i) => bip(f, .25 + i * .09, .3, "triangle", .22));
+  },
   jingle()   { [440, 554, 659, 880].forEach((f, i) => bip(f, i * .09, .25, "square", .12)); },
   bon()      { [523, 659, 784, 1047].forEach((f, i) => bip(f, i * .1, .3, "triangle", .22)); },
   mauvais()  { bip(220, 0, .3, "sawtooth", .2); bip(155, .25, .5, "sawtooth", .2); },
@@ -243,6 +271,21 @@ function ouvrirEpreuve() {
   $("epreuve-texte").textContent = contenu.texte || "";
   $("epreuve-consigne").textContent = contenu.consigne || "";
 
+  // Duo / Carré / Cash (si la question a des propositions)
+  carteEnCours.aDcc = Array.isArray(contenu.propositions) &&
+    contenu.propositions.filter(Boolean).length >= 2 &&
+    ["question", "triche", "piege"].includes(carte.type);
+  carteEnCours.dccMode = null;
+
+  // Petite mascotte selon l'épreuve
+  const POSES_EPREUVE = {
+    question: "livre", triche: "question", piege: "question", mime: "paint",
+    blindtest: "saut", defi: "pouce", video: "saut", bonus: "coeur", malus: "question",
+  };
+  const masc = $("epreuve-mascotte");
+  masc.src = "images/lilou-" + (POSES_EPREUVE[carte.type] || "salut") + ".png";
+  masc.classList.add("visible");
+
   const pts = $("epreuve-points");
   if (carte.type === "bonus" || carte.type === "malus") {
     pts.style.display = "none";
@@ -279,10 +322,16 @@ function ouvrirEpreuve() {
   // Musique et vidéo (l'arrêt du média précédent doit venir avant l'affichage du nouveau)
   stopperMusique();
   if (contenu.musique) {
-    audioMusique = new Audio(contenu.musique);
-    audioMusique.addEventListener("error", () => annoncerEpreuve("⚠️ Fichier musique introuvable : " + contenu.musique));
+    resoudreMedia(contenu.musique).then((url) => {
+      if (!carteEnCours || carteEnCours.numero !== numero) return;
+      if (!url) { annoncerEpreuve("⚠️ Musique introuvable : " + contenu.musique); return; }
+      audioMusique = new Audio(url);
+      audioMusique.addEventListener("error", () => annoncerEpreuve("⚠️ Musique illisible : " + contenu.musique));
+    });
   }
-  montrerVideo(contenu);
+  montrerVideo(contenu, carte.type, numero);
+
+  preparerDcc();
 
   // Boutons de validation adaptés
   const validationCommune = commun && !["bonus", "malus", "piege"].includes(carte.type);
@@ -359,6 +408,10 @@ function appliquerEffet(carte, equipe) {
 
 function pointsCalcules(carte, equipe) {
   let pts = carte.points || 1;
+  // Barème Duo / Carré / Cash si un mode a été choisi
+  if (carteEnCours && carteEnCours.aDcc && carteEnCours.dccMode) {
+    pts = baremeDcc(carte)[carteEnCours.dccMode];
+  }
   const iDouble = etat.badges[equipe].findIndex(b => b.id === "double");
   if (iDouble >= 0) {
     pts *= 2;
@@ -422,6 +475,7 @@ function afficherResultat(classe, icone, texte, points, equipe, flottant) {
   $("resultat-icone").textContent = icone;
   $("resultat-texte").textContent = texte;
   $("resultat-points").textContent = points || "";
+  $("resultat-mascotte").classList.toggle("visible", classe === "bon");
   if (flottant && equipe) pointsFlottants(flottant, equipe);
   setTimeout(() => {
     ov.classList.remove("visible");
@@ -449,6 +503,11 @@ function retourMur(changerTour) {
   $("secret-peek").classList.remove("visible");
   $("timer").classList.remove("visible");
   $("vinyle").classList.remove("visible");
+  $("epreuve-mascotte").classList.remove("visible");
+  $("dcc-choix").classList.remove("visible");
+  $("dcc-mode-badge").classList.remove("visible");
+  $("dcc-propositions").classList.remove("visible");
+  $("dcc-propositions").innerHTML = "";
   carteEnCours = null;
   if (changerTour) etat.tour = etat.tour === "enfants" ? "adultes" : "enfants";
   sauvegarder();
@@ -514,7 +573,12 @@ function basculerReponse() {
   if (!carteEnCours || !carteEnCours.contenu.reponse) return;
   const rep = $("epreuve-reponse");
   const visible = rep.classList.toggle("visible");
-  if (visible) sons.reveal();
+  if (visible) {
+    sons.reveal();
+    // Marque la bonne proposition (duo/carré) et lève le rideau du blind test
+    document.querySelectorAll(".dcc-prop[data-bonne]").forEach(el => el.classList.add("bonne"));
+    $("video-zone").classList.remove("cache");
+  }
 }
 
 /* Vidéos (Just Dance…) : champ youtube (lien ou identifiant) ou video (fichier local) */
@@ -529,9 +593,10 @@ function idYoutube(s) {
   return null;
 }
 
-function montrerVideo(contenu) {
+function montrerVideo(contenu, typeCarte, numero) {
   const zone = $("video-zone");
   zone.innerHTML = "";
+  zone.classList.remove("cache");
   lecteurYoutube = null; lecteurVideo = null; youtubeEnLecture = false;
   const ecran = $("ecran-epreuve");
   let visible = false;
@@ -546,17 +611,31 @@ function montrerVideo(contenu) {
       zone.appendChild(f);
       lecteurYoutube = f;
       visible = true;
+      // Blind test avec clip YouTube : on cache l'image derrière un rideau,
+      // le son joue quand même. La touche R (réponse) lève le rideau.
+      if (typeCarte === "blindtest") {
+        const rideau = document.createElement("div");
+        rideau.id = "video-rideau";
+        rideau.innerHTML = "🎵 ❓ 🎵<div class='note'>Écoutez bien… l'image est cachée !</div>";
+        zone.appendChild(rideau);
+        zone.classList.add("cache");
+      }
     } else {
       annoncerEpreuve("⚠️ Lien YouTube invalide : " + contenu.youtube);
     }
   } else if (contenu.video) {
-    const v = document.createElement("video");
-    v.src = contenu.video;
-    v.controls = true;
-    v.addEventListener("error", () => annoncerEpreuve("⚠️ Fichier vidéo introuvable : " + contenu.video));
-    zone.appendChild(v);
-    lecteurVideo = v;
-    visible = true;
+    resoudreMedia(contenu.video).then((url) => {
+      if (!carteEnCours || carteEnCours.numero !== numero) return;
+      if (!url) { annoncerEpreuve("⚠️ Vidéo introuvable : " + contenu.video); return; }
+      const v = document.createElement("video");
+      v.src = url;
+      v.controls = true;
+      v.addEventListener("error", () => annoncerEpreuve("⚠️ Vidéo illisible : " + contenu.video));
+      zone.appendChild(v);
+      lecteurVideo = v;
+      zone.classList.add("visible");
+      ecran.classList.add("epreuve-video");
+    });
   }
 
   zone.classList.toggle("visible", visible);
@@ -593,9 +672,11 @@ function stopperMusique() {
   if (lecteurVideo) { try { lecteurVideo.pause(); } catch (e) {} lecteurVideo = null; }
   if (lecteurYoutube) { commandeYoutube("pauseVideo"); lecteurYoutube = null; youtubeEnLecture = false; }
   $("video-zone").innerHTML = "";
-  $("video-zone").classList.remove("visible");
+  $("video-zone").classList.remove("visible", "cache");
   $("ecran-epreuve").classList.remove("epreuve-video");
   $("vinyle").classList.add("pause");
+  urlsARevoquer.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
+  urlsARevoquer = [];
 }
 
 /* ---------------------------------------------------------------- Victoire */
@@ -615,11 +696,11 @@ function ecranVictoire() {
   lancerConfettis();
 }
 
-function lancerConfettis() {
+function pluieConfettis(nombre, intervalle, encoreActif) {
   const couleurs = ["#00d9ff", "#ff2e88", "#ffd24a", "#3ddc84", "#c04dff", "#ffffff"];
-  for (let i = 0; i < 120; i++) {
+  for (let i = 0; i < nombre; i++) {
     setTimeout(() => {
-      if (ecranActuel !== "victoire") return;
+      if (encoreActif && !encoreActif()) return;
       const c = document.createElement("div");
       c.className = "confetti";
       c.style.left = Math.random() * 100 + "vw";
@@ -628,8 +709,12 @@ function lancerConfettis() {
       c.style.borderRadius = Math.random() > .5 ? "50%" : "0";
       document.body.appendChild(c);
       setTimeout(() => c.remove(), 6000);
-    }, i * 60);
+    }, i * intervalle);
   }
+}
+
+function lancerConfettis() {
+  pluieConfettis(120, 60, () => ecranActuel === "victoire");
 }
 
 /* ---------------------------------------------------------------- Nouvelle partie */
@@ -656,6 +741,10 @@ document.addEventListener("keydown", (e) => {
     if (e.key === " " || e.key === "Enter") { montrerEcran("mur"); sons.jingle(); }
     return;
   }
+
+  // Défi surprise : S le déclenche et le termine, où qu'on soit
+  if (k === "s") { toggleDefiSurprise(); return; }
+  if (defiSurprise.actif) return; // le reste du clavier est gelé pendant le défi
 
   // Écran victoire
   if (ecranActuel === "victoire") {
@@ -690,6 +779,12 @@ document.addEventListener("keydown", (e) => {
     }
     case ecranActuel === "mur" && e.key === "Backspace":
       saisie = ""; $("saisie-numero").style.display = "none"; return;
+
+    // ----- Épreuve : choix Duo (1) / Carré (2) / Cash (3)
+    case ecranActuel === "epreuve" && !!carteEnCours && !!carteEnCours.aDcc
+         && !carteEnCours.dccMode && /^(Digit|Numpad)[123]$/.test(e.code):
+      choisirModeDcc({ 1: "duo", 2: "carre", 3: "cash" }[e.code.slice(-1)]);
+      return;
 
     // ----- Épreuve : ESPACE termine un bonus / malus
     case ecranActuel === "epreuve" && e.key === " " && !!carteEnCours
@@ -854,6 +949,7 @@ function envoyerEtat() {
     ecran: ecranActuel,
     timerRestant, timerTotal,
     timerActif: !!timerInterval,
+    defiSurprise: { actif: defiSurprise.actif, phase: defiSurprise.phase },
     carte: carteEnCours ? {
       numero: carteEnCours.numero,
       type: carteEnCours.carte.type,
@@ -868,6 +964,10 @@ function envoyerEtat() {
       secret: carteEnCours.contenu.secret || "",
       musique: !!carteEnCours.contenu.musique,
       media: !!(carteEnCours.contenu.musique || carteEnCours.contenu.youtube || carteEnCours.contenu.video),
+      aDcc: !!carteEnCours.aDcc,
+      dccMode: carteEnCours.dccMode || null,
+      dccPoints: carteEnCours.aDcc ? baremeDcc(carteEnCours.carte) : null,
+      propositions: carteEnCours.aDcc ? carteEnCours.contenu.propositions : null,
     } : null,
   };
   publier("etat", msg, true);
@@ -875,11 +975,15 @@ function envoyerEtat() {
 
 // Catalogue complet des cartes (pour l'onglet Cartes de la télécommande)
 function envoyerCartes() {
+  const jeux = lireJeux();
   publier("cartes", {
     type: "cartes",
     equipes: CONFIG.equipes,
     premierTour: CONFIG.premierTour,
     cartes: CONFIG.cartes,
+    defisSurprise: CONFIG.defisSurprise || [],
+    jeux: Object.keys(jeux).map(nom => ({ nom, date: jeux[nom].date })).sort((a, b) => b.date - a.date),
+    jeuActif,
   }, true);
 }
 
@@ -893,6 +997,12 @@ function executerCommande(d) {
     case "ping": return;
     case "majCarte": majCarte(d); return;
     case "resetCartes": resetCartes(); return;
+    case "sauverJeu": sauverJeu(d.nom); return;
+    case "chargerJeu": chargerJeu(d.nom); return;
+    case "supprimerJeu": supprimerJeu(d.nom); return;
+    case "defiSurprise": toggleDefiSurprise(); return;
+    case "dcc": choisirModeDcc(d.mode); return;
+    case "fichierPC": demanderFichierPC(d); return;
   }
   switch (d.cmd) {
     case "demarrer":  if (ecranActuel === "titre") { montrerEcran("mur"); sons.jingle(); } break;
@@ -923,29 +1033,58 @@ function ctxSiPossible() {
   try { ctx(); } catch (e) {}
 }
 
-/* ------- Modification des cartes depuis la télécommande (onglet Paramètres) */
+/* ------- Modification des cartes depuis la télécommande (onglet Cartes) */
 
-const CLE_CARTES = "pve-cartes-v1";
-const CHAMPS_EDITABLES = ["texte", "consigne", "reponse", "indice", "secret", "musique", "youtube", "video"];
-let CARTES_ORIGINALES = null; // instantané avant toute modification
+const CLE_CARTES = "pve-cartes-v1";     // deck actif (complet), survit au rechargement
+const CLE_JEUX = "pve-jeux-v1";         // jeux nommés : { nom: { date, cartes } }
+const CLE_JEU_ACTIF = "pve-jeu-actif";
+const CHAMPS_EDITABLES = ["texte", "consigne", "reponse", "indice", "secret", "musique", "youtube", "video", "propositions"];
+const CHAMPS_CARTE = ["type", "points", "perte", "timer", "effet", "valeur"];
+let CARTES_ORIGINALES = null; // instantané du cartes.js d'origine
+let jeuActif = null;
+
+const clone = (o) => JSON.parse(JSON.stringify(o));
 
 function chargerModifsCartes() {
-  CARTES_ORIGINALES = JSON.parse(JSON.stringify(CONFIG.cartes));
-  let modifs = {};
-  try { modifs = JSON.parse(localStorage.getItem(CLE_CARTES) || "{}"); } catch (e) {}
-  for (const n in modifs) appliquerModifCarte(n, modifs[n]);
+  CARTES_ORIGINALES = clone(CONFIG.cartes);
+  jeuActif = localStorage.getItem(CLE_JEU_ACTIF) || null;
+  let stocke = null;
+  try { stocke = JSON.parse(localStorage.getItem(CLE_CARTES) || "null"); } catch (e) {}
+  if (!stocke) return;
+  const cles = Object.keys(stocke);
+  if (cles.length && stocke[cles[0]] && typeof stocke[cles[0]].type === "string") {
+    CONFIG.cartes = stocke; // deck complet
+  } else {
+    // Ancien format (différences par carte) : on migre
+    for (const n in stocke) appliquerModifCarte(n, {}, stocke[n]);
+    sauverDeck();
+  }
 }
 
-function appliquerModifCarte(n, variantes) {
+function sauverDeck() {
+  try { localStorage.setItem(CLE_CARTES, JSON.stringify(CONFIG.cartes)); } catch (e) {}
+}
+
+function appliquerModifCarte(n, meta, variantes) {
   const carte = CONFIG.cartes[n];
   if (!carte) return;
+  for (const champ of CHAMPS_CARTE) {
+    if (!meta || !(champ in meta)) continue;
+    const v = meta[champ];
+    if (v === "" || v == null || (typeof v === "number" && isNaN(v))) {
+      if (champ !== "type") delete carte[champ];
+    } else {
+      carte[champ] = v;
+    }
+  }
   for (const cible of ["enfants", "adultes", "commun"]) {
-    if (!variantes[cible]) continue;
+    if (!variantes || !variantes[cible]) continue;
     if (!carte[cible]) carte[cible] = {};
     for (const champ of CHAMPS_EDITABLES) {
       if (champ in variantes[cible]) {
         const v = variantes[cible][champ];
-        if (v === "" || v == null) delete carte[cible][champ];
+        const vide = v == null || v === "" || (Array.isArray(v) && !v.filter(Boolean).length);
+        if (vide) delete carte[cible][champ];
         else carte[cible][champ] = v;
       }
     }
@@ -953,26 +1092,251 @@ function appliquerModifCarte(n, variantes) {
 }
 
 function majCarte(d) {
-  if (!d.n || !d.variantes || !CONFIG.cartes[d.n]) return;
-  appliquerModifCarte(d.n, d.variantes);
-  let modifs = {};
-  try { modifs = JSON.parse(localStorage.getItem(CLE_CARTES) || "{}"); } catch (e) {}
-  modifs[d.n] = Object.assign(modifs[d.n] || {}, d.variantes);
-  try { localStorage.setItem(CLE_CARTES, JSON.stringify(modifs)); } catch (e) {}
+  if (!d.n || !CONFIG.cartes[d.n]) return;
+  appliquerModifCarte(d.n, d.carte, d.variantes);
+  sauverDeck();
   envoyerCartes();
+  rafraichirMur();
   // Si la carte modifiée est en cours d'affichage, on rafraîchit
   if (carteEnCours && carteEnCours.numero === +d.n) {
     const def = CONFIG.cartes[d.n];
+    carteEnCours.carte = def;
+    carteEnCours.commun = !!def.commun;
     carteEnCours.contenu = def.commun || def[carteEnCours.equipe] || def.enfants || def.adultes;
     ouvrirEpreuve();
   }
 }
 
 function resetCartes() {
-  try { localStorage.removeItem(CLE_CARTES); } catch (e) {}
-  if (CARTES_ORIGINALES) CONFIG.cartes = JSON.parse(JSON.stringify(CARTES_ORIGINALES));
+  try { localStorage.removeItem(CLE_CARTES); localStorage.removeItem(CLE_JEU_ACTIF); } catch (e) {}
+  jeuActif = null;
+  if (CARTES_ORIGINALES) CONFIG.cartes = clone(CARTES_ORIGINALES);
+  envoyerCartes();
+  rafraichirMur();
+}
+
+/* ------- Jeux enregistrés (plusieurs configurations nommées) */
+
+function lireJeux() {
+  try { return JSON.parse(localStorage.getItem(CLE_JEUX) || "{}"); } catch (e) { return {}; }
+}
+function ecrireJeux(jeux) {
+  try { localStorage.setItem(CLE_JEUX, JSON.stringify(jeux)); } catch (e) {}
+}
+
+function sauverJeu(nom) {
+  nom = String(nom || "").trim().slice(0, 40);
+  if (!nom) return;
+  const jeux = lireJeux();
+  jeux[nom] = { date: Date.now(), cartes: clone(CONFIG.cartes) };
+  ecrireJeux(jeux);
+  jeuActif = nom;
+  try { localStorage.setItem(CLE_JEU_ACTIF, nom); } catch (e) {}
   envoyerCartes();
 }
+
+function chargerJeu(nom) {
+  const jeu = lireJeux()[nom];
+  if (!jeu) return;
+  CONFIG.cartes = clone(jeu.cartes);
+  sauverDeck();
+  jeuActif = nom;
+  try { localStorage.setItem(CLE_JEU_ACTIF, nom); } catch (e) {}
+  envoyerCartes();
+  rafraichirMur();
+}
+
+function supprimerJeu(nom) {
+  const jeux = lireJeux();
+  delete jeux[nom];
+  ecrireJeux(jeux);
+  if (jeuActif === nom) {
+    jeuActif = null;
+    try { localStorage.removeItem(CLE_JEU_ACTIF); } catch (e) {}
+  }
+  envoyerCartes();
+}
+
+/* ---------------------------------------------------------------- Duo / Carré / Cash */
+
+function baremeDcc(carte) {
+  const p = carte.points || 2;
+  return { duo: Math.max(1, Math.ceil(p / 2)), carre: p, cash: p * 2 };
+}
+
+function preparerDcc() {
+  const c = carteEnCours;
+  const choix = $("dcc-choix");
+  $("dcc-mode-badge").classList.remove("visible");
+  $("dcc-propositions").classList.remove("visible");
+  $("dcc-propositions").innerHTML = "";
+  if (!c || !c.aDcc) { choix.classList.remove("visible"); return; }
+  const bareme = baremeDcc(c.carte);
+  choix.querySelector(".duo small").textContent = "2 choix — " + bareme.duo + " pt" + (bareme.duo > 1 ? "s" : "");
+  choix.querySelector(".carre small").textContent = "4 choix — " + bareme.carre + " pts";
+  choix.querySelector(".cash small").textContent = "sans aide — " + bareme.cash + " pts";
+  choix.classList.add("visible");
+  $("epreuve-points").style.display = "none";
+}
+
+function choisirModeDcc(mode) {
+  const c = carteEnCours;
+  if (!c || !c.aDcc || c.dccMode || !["duo", "carre", "cash"].includes(mode)) return;
+  c.dccMode = mode;
+  sons.jingle();
+  const bareme = baremeDcc(c.carte);
+  $("dcc-choix").classList.remove("visible");
+  const badge = $("dcc-mode-badge");
+  badge.textContent = { duo: "🎯 DUO", carre: "🔲 CARRÉ", cash: "💰 CASH" }[mode] +
+    " — " + bareme[mode] + " point" + (bareme[mode] > 1 ? "s" : "");
+  badge.classList.add("visible");
+
+  const props = c.contenu.propositions || [];
+  const bonne = props[0];
+  let affichees = [];
+  if (mode === "duo") affichees = [bonne, props[1]].filter(x => x != null);
+  if (mode === "carre") affichees = props.slice(0, 4);
+  // mélange
+  affichees = affichees.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  const zone = $("dcc-propositions");
+  const lettres = ["A", "B", "C", "D"];
+  affichees.forEach((p, i) => {
+    const el = document.createElement("div");
+    el.className = "dcc-prop";
+    el.style.animationDelay = (i * .12) + "s";
+    if (p === bonne) el.dataset.bonne = "1";
+    el.innerHTML = `<span class="lettre">${lettres[i]}</span><span></span>`;
+    el.querySelector("span:last-child").textContent = p;
+    zone.appendChild(el);
+  });
+  if (affichees.length) zone.classList.add("visible");
+  envoyerEtat();
+}
+
+/* ---------------------------------------------------------------- Défi surprise 🎉 */
+
+let defiSurprise = { actif: false, phase: null, texte: "" };
+let dernierDefi = -1;
+let defiTimeout = null;
+
+function toggleDefiSurprise() {
+  if (defiSurprise.actif) { finirDefiSurprise(); return; }
+  const liste = CONFIG.defisSurprise || [];
+  if (!liste.length) return;
+  let i;
+  do { i = Math.floor(Math.random() * liste.length); } while (liste.length > 1 && i === dernierDefi);
+  dernierDefi = i;
+  defiSurprise = { actif: true, phase: "tambour", texte: liste[i] };
+  if (timerInterval) basculerTimer(); // met le chrono d'épreuve en pause
+  const el = $("defi-surprise");
+  $("defi-texte").textContent = liste[i];
+  el.classList.add("visible", "tambour");
+  el.classList.remove("reveal");
+  sons.tambour();
+  envoyerEtat();
+  defiTimeout = setTimeout(() => {
+    if (!defiSurprise.actif) return;
+    defiSurprise.phase = "reveal";
+    el.classList.remove("tambour");
+    el.classList.add("reveal");
+    sons.paf();
+    pluieConfettis(36, 30, () => defiSurprise.actif);
+    envoyerEtat();
+  }, 2400);
+}
+
+function finirDefiSurprise() {
+  clearTimeout(defiTimeout);
+  defiSurprise = { actif: false, phase: null, texte: "" };
+  $("defi-surprise").classList.remove("visible", "tambour", "reveal");
+  sons.jingle();
+  envoyerEtat();
+}
+
+/* ---------------------------------------------------------------- Fichiers locaux (musiques / vidéos du PC) */
+/* Les fichiers choisis sont stockés dans le navigateur (IndexedDB) : rien à
+   téléverser sur internet, et ça survit au rechargement de la page. */
+
+let dbMedias = null;
+let urlsARevoquer = [];
+let demandeFichier = null;
+
+function ouvrirDB() {
+  return new Promise((res) => {
+    if (dbMedias) return res(dbMedias);
+    try {
+      const rq = indexedDB.open("pve-medias", 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore("fichiers");
+      rq.onsuccess = () => { dbMedias = rq.result; res(dbMedias); };
+      rq.onerror = () => res(null);
+    } catch (e) { res(null); }
+  });
+}
+
+function stockerMedia(cle, fichier) {
+  return ouvrirDB().then(db => new Promise((res) => {
+    if (!db) return res(false);
+    const tx = db.transaction("fichiers", "readwrite");
+    tx.objectStore("fichiers").put(fichier, cle);
+    tx.oncomplete = () => res(true);
+    tx.onerror = () => res(false);
+  }));
+}
+
+function lireMedia(cle) {
+  return ouvrirDB().then(db => new Promise((res) => {
+    if (!db) return res(null);
+    const rq = db.transaction("fichiers").objectStore("fichiers").get(cle);
+    rq.onsuccess = () => res(rq.result || null);
+    rq.onerror = () => res(null);
+  }));
+}
+
+// "local:xxx" -> URL de lecture depuis IndexedDB ; sinon la valeur telle quelle
+function resoudreMedia(valeur) {
+  if (!valeur) return Promise.resolve(null);
+  const s = String(valeur);
+  if (!s.startsWith("local:")) return Promise.resolve(s);
+  return lireMedia(s.slice(6)).then(f => {
+    if (!f) return null;
+    const url = URL.createObjectURL(f);
+    urlsARevoquer.push(url);
+    return url;
+  });
+}
+
+function demanderFichierPC(d) {
+  if (!d || !d.n || !d.cible || !d.champ) return;
+  demandeFichier = d;
+  $("fichier-detail").textContent =
+    "Carte " + d.n + " (" + d.cible + ") — " + (d.champ === "musique" ? "fichier audio 🎵" : "fichier vidéo 🎬");
+  $("fichier-input").accept = d.champ === "musique" ? "audio/*" : "video/*";
+  $("fichier-overlay").classList.add("visible");
+}
+
+function fermerFichierOverlay() {
+  demandeFichier = null;
+  $("fichier-overlay").classList.remove("visible");
+  $("fichier-input").value = "";
+}
+
+$("fichier-choisir").addEventListener("click", () => $("fichier-input").click());
+$("fichier-annuler").addEventListener("click", fermerFichierOverlay);
+$("fichier-input").addEventListener("change", () => {
+  const f = $("fichier-input").files[0];
+  const d = demandeFichier;
+  if (!f || !d) { fermerFichierOverlay(); return; }
+  const cle = d.n + "-" + d.cible + "-" + d.champ;
+  stockerMedia(cle, f).then((ok) => {
+    if (ok) {
+      majCarte({ n: d.n, variantes: { [d.cible]: { [d.champ]: "local:" + cle } } });
+      annoncer("✔ « " + f.name + " » enregistré pour la carte " + d.n);
+    } else {
+      annoncer("⚠️ Impossible de stocker le fichier");
+    }
+    fermerFichierOverlay();
+  });
+});
 
 function resetSansConfirmation() {
   etat = {
@@ -987,6 +1351,52 @@ function resetSansConfirmation() {
   rafraichirBandeau();
   montrerEcran("mur");
 }
+
+/* ---------------------------------------------------------------- Motion design (plateau vivant) */
+
+// Particules qui flottent sur le titre et le mur
+setInterval(() => {
+  if (!["mur", "titre"].includes(ecranActuel) || defiSurprise.actif) return;
+  if (document.querySelectorAll(".particule").length > 22) return;
+  const formes = ["✦", "●", "★", "◆", "♪", "✚"];
+  const couleurs = ["rgba(0,217,255,.5)", "rgba(255,46,136,.5)", "rgba(255,210,74,.55)", "rgba(255,255,255,.4)", "rgba(61,220,132,.45)"];
+  const p = document.createElement("div");
+  p.className = "particule";
+  p.textContent = formes[Math.floor(Math.random() * formes.length)];
+  p.style.left = Math.random() * 100 + "vw";
+  p.style.color = couleurs[Math.floor(Math.random() * couleurs.length)];
+  p.style.fontSize = (1.3 + Math.random() * 2.2) + "vh";
+  p.style.animationDuration = (7 + Math.random() * 8) + "s";
+  document.body.appendChild(p);
+  setTimeout(() => p.remove(), 16000);
+}, 800);
+
+// Balayage brillant sur une carte au hasard
+setInterval(() => {
+  if (ecranActuel !== "mur") return;
+  const libres = [...document.querySelectorAll(".carte:not(.utilisee)")];
+  if (!libres.length) return;
+  const c = libres[Math.floor(Math.random() * libres.length)];
+  c.classList.add("brille");
+  setTimeout(() => c.classList.remove("brille"), 1200);
+}, 2600);
+
+// Lilou vient faire coucou de temps en temps
+const POSES_COUCOU = ["salut", "saut", "pouce", "coeur", "paint", "livre", "question"];
+setInterval(() => {
+  if (ecranActuel !== "mur" || defiSurprise.actif) return;
+  const el = $("mascotte-coucou");
+  const img = el.querySelector("img");
+  img.onerror = () => el.classList.remove("visible");
+  img.src = "images/lilou-" + POSES_COUCOU[Math.floor(Math.random() * POSES_COUCOU.length)] + ".png";
+  el.classList.add("visible");
+  setTimeout(() => el.classList.remove("visible"), 4500);
+}, 26000);
+
+// Boutons Duo / Carré / Cash cliquables à l'écran
+document.querySelectorAll(".dcc-btn").forEach(b => {
+  b.addEventListener("click", () => choisirModeDcc(b.dataset.mode));
+});
 
 /* ---------------------------------------------------------------- Démarrage */
 

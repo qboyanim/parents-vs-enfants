@@ -193,6 +193,8 @@ button:disabled { opacity: .35; }
 
   <div id="zone"></div>
 
+  <button id="btn-defi" style="background:linear-gradient(135deg,#b8860b,#8a6a00);font-size:17px;padding:16px">🥁 DÉFI SURPRISE !</button>
+
   <div id="bas">
     <button class="or" data-cmd="victoire">🏆 Fin</button>
     <button id="btn-nouvelle">♻ Nouvelle partie</button>
@@ -212,6 +214,18 @@ button:disabled { opacity: .35; }
     <button data-f="commun">👥 Communes</button>
   </div>
   <div id="liste-cartes"></div>
+
+  <div style="background:rgba(0,0,0,.35);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-weight:900;font-size:15px;color:#ffd24a">💾 Mes jeux</div>
+    <div id="jeu-actif" style="font-size:13px;color:rgba(255,255,255,.7)"></div>
+    <div style="display:flex;gap:8px">
+      <input id="nom-jeu" placeholder="Nom du jeu (ex : Maternelles)" maxlength="40"
+        style="flex:1;border-radius:10px;border:1px solid #3a3a55;background:rgba(0,0,0,.45);color:#fff;padding:10px;font-family:inherit;font-size:14px;outline:none;user-select:text;-webkit-user-select:text">
+      <button class="vert" id="btn-sauver-jeu" style="font-size:13px;padding:10px">💾 Enregistrer</button>
+    </div>
+    <div id="liste-jeux" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+
   <button class="bleu" id="btn-exporter" style="font-size:14px">⬇ Télécharger la sauvegarde (cartes.js)</button>
   <button id="btn-retablir" style="font-size:13px">↩ Rétablir les cartes d'origine</button>
 </div>
@@ -319,6 +333,10 @@ const TYPES = {
 
 function rendre() {
   if (!etat) return;
+  const defi = etat.defiSurprise || {};
+  const btnDefi = $("btn-defi");
+  btnDefi.textContent = defi.actif ? "⏹ TERMINER LE DÉFI SURPRISE" : "🥁 DÉFI SURPRISE !";
+  btnDefi.style.background = defi.actif ? "#a02030" : "linear-gradient(135deg,#b8860b,#8a6a00)";
   $("sc-enfants").textContent = etat.scores.enfants;
   $("sc-adultes").textContent = etat.scores.adultes;
   $("bdg-enfants").textContent = (etat.badges.enfants || []).map(b => b.txt).join("  ");
@@ -366,8 +384,23 @@ function rendre() {
   if (c.secret)   html += `<div class="sec">🤫 SECRET : ${echap(c.secret)}</div>`;
   if (c.reponse)  html += `<div class="rep">✅ Réponse : ${echap(c.reponse)}</div>`;
   if (c.indice)   html += `<div class="ind">🕵 Indice de triche : ${echap(c.indice)}</div>`;
+  if (c.aDcc && c.dccMode) {
+    const noms = { duo: "🎯 DUO", carre: "🔲 CARRÉ", cash: "💰 CASH" };
+    html += `<div class="csg">Mode choisi : <b>${noms[c.dccMode]}</b> — ${c.dccPoints[c.dccMode]} pts en jeu</div>`;
+  }
   info.innerHTML = html;
   z.appendChild(info);
+
+  // Duo / Carré / Cash : choix du mode depuis le téléphone
+  if (c.aDcc && !c.dccMode && c.dccPoints) {
+    const dcc = document.createElement("div");
+    dcc.className = "rangee grosse";
+    dcc.style.marginTop = "8px";
+    dcc.appendChild(bouton("🎯 DUO\n" + c.dccPoints.duo + " pt", "bleu", () => envoyer("dcc", { mode: "duo" })));
+    dcc.appendChild(bouton("🔲 CARRÉ\n" + c.dccPoints.carre + " pts", "or", () => envoyer("dcc", { mode: "carre" })));
+    dcc.appendChild(bouton("💰 CASH\n" + c.dccPoints.cash + " pts", "rouge", () => envoyer("dcc", { mode: "cash" })));
+    z.appendChild(dcc);
+  }
 
   if (c.type === "bonus" || c.type === "malus") {
     z.appendChild(bouton("➡ CONTINUER", "vert", () => envoyer("continuer"), "width:100%;padding:18px;margin-top:8px"));
@@ -467,37 +500,197 @@ function rendreCartes() {
 
     const ed = document.createElement("div");
     ed.className = "editeur";
+
+    // --- Réglages de la carte (pour toutes les équipes) ---
+    const etiquette = (txt) => {
+      const l = document.createElement("label");
+      l.textContent = txt;
+      ed.appendChild(l);
+      return l;
+    };
+
+    etiquette("Type d'épreuve (change la carte entière)");
+    const selType = document.createElement("select");
+    selType.style.cssText = "width:100%;border-radius:8px;border:1px solid #3a3a55;background:rgba(0,0,0,.45);color:#fff;padding:9px;font-family:inherit;font-size:14px";
+    for (const t in TYPES) {
+      const o = document.createElement("option");
+      o.value = t; o.textContent = TYPES[t];
+      if (t === carte.type) o.selected = true;
+      selType.appendChild(o);
+    }
+    ed.appendChild(selType);
+
+    const rangeeNombres = document.createElement("div");
+    rangeeNombres.style.cssText = "display:flex;gap:8px";
+    const champNombre = (cle, label, valeur) => {
+      const bloc = document.createElement("div");
+      bloc.style.cssText = "flex:1;display:flex;flex-direction:column;gap:3px";
+      const l = document.createElement("label"); l.textContent = label;
+      const i = document.createElement("input");
+      i.type = "number"; i.min = "0"; i.value = valeur == null ? "" : valeur;
+      i.dataset.meta = cle;
+      i.style.cssText = "width:100%;border-radius:8px;border:1px solid #3a3a55;background:rgba(0,0,0,.45);color:#fff;padding:9px;font-family:inherit;font-size:14px";
+      bloc.appendChild(l); bloc.appendChild(i);
+      rangeeNombres.appendChild(bloc);
+    };
+    champNombre("points", "⭐ Points", carte.points);
+    champNombre("perte", "💥 Perte si raté", carte.perte);
+    champNombre("timer", "⏱ Chrono (s)", carte.timer);
+    ed.appendChild(rangeeNombres);
+
+    let selEffet = null, champValeur = null;
+    if (carte.type === "bonus" || carte.type === "malus") {
+      etiquette("Effet automatique");
+      selEffet = document.createElement("select");
+      selEffet.style.cssText = selType.style.cssText;
+      const EFFETS = { "": "(aucun — juste annoncé)", double: "✨ Double points", vol: "🦝 Vol de points", gain: "💰 Gain direct", perte: "🌩 Perte directe", silence: "🤐 Interdiction de parler", "seconde-chance": "🔁 Seconde chance", sabotage: "🔧 Sabotage", choix: "🎯 Choix de la carte adverse", "defi-oblige": "🦆 Défi obligatoire" };
+      for (const eft in EFFETS) {
+        const o = document.createElement("option");
+        o.value = eft; o.textContent = EFFETS[eft];
+        if (eft === (carte.effet || "")) o.selected = true;
+        selEffet.appendChild(o);
+      }
+      ed.appendChild(selEffet);
+      etiquette("Valeur (pour vol / gain / perte)");
+      champValeur = document.createElement("input");
+      champValeur.type = "number"; champValeur.min = "0";
+      champValeur.value = carte.valeur == null ? "" : carte.valeur;
+      champValeur.style.cssText = selType.style.cssText;
+      ed.appendChild(champValeur);
+    }
+
+    const sep = document.createElement("div");
+    sep.style.cssText = "border-top:1px solid rgba(255,255,255,.15);margin:8px 0 2px";
+    ed.appendChild(sep);
+
+    // --- Contenu de la variante affichée (filtre actif) ---
     const champsUtiles = CHAMPS.filter(([cle]) =>
       cle in variante ||
       ["texte", "consigne", "reponse"].includes(cle) ||
       (cle === "indice" && carte.type === "triche") ||
       (cle === "secret" && carte.type === "mime") ||
-      (cle === "youtube" && carte.type === "video") ||
-      (cle === "musique" && carte.type === "blindtest")
+      (cle === "youtube" && ["video", "blindtest"].includes(carte.type)) ||
+      (cle === "musique" && carte.type === "blindtest") ||
+      (cle === "video" && carte.type === "video")
     );
     for (const [cle, label, tag] of champsUtiles) {
-      const l = document.createElement("label");
-      l.textContent = label;
-      ed.appendChild(l);
+      etiquette(label);
       const champ = document.createElement(tag);
       champ.value = variante[cle] || "";
       champ.dataset.cle = cle;
-      ed.appendChild(champ);
+      if (cle === "musique" || cle === "video") {
+        const rangee = document.createElement("div");
+        rangee.style.cssText = "display:flex;gap:8px";
+        champ.style.flex = "1";
+        rangee.appendChild(champ);
+        const btnPC = document.createElement("button");
+        btnPC.textContent = "📂 PC";
+        btnPC.className = "violet";
+        btnPC.style.cssText = "font-size:13px;padding:8px 12px";
+        btnPC.title = "Choisir un fichier sur l'ordinateur (à valider sur le grand écran)";
+        btnPC.addEventListener("click", () => {
+          envoyer("fichierPC", { n, cible: filtreActif, champ: cle });
+          notifier("📂 Regarde le grand écran pour choisir le fichier !");
+        });
+        rangee.appendChild(btnPC);
+        ed.appendChild(rangee);
+      } else {
+        ed.appendChild(champ);
+      }
     }
+
+    // Propositions Duo / Carré / Cash pour les questions
+    let inputsProps = null;
+    if (["question", "triche", "piege"].includes(carte.type)) {
+      etiquette("Duo/Carré/Cash — propositions (laisser vide pour désactiver)");
+      inputsProps = [];
+      const props = variante.propositions || [];
+      const labels = ["✅ BONNE réponse", "✗ Piège 1", "✗ Piège 2", "✗ Piège 3"];
+      labels.forEach((lb, i) => {
+        const i2 = document.createElement("input");
+        i2.placeholder = lb;
+        i2.value = props[i] || "";
+        i2.style.cssText = "width:100%;border-radius:8px;border:1px solid " + (i === 0 ? "#1d7a3a" : "#3a3a55") + ";background:rgba(0,0,0,.45);color:#fff;padding:9px;font-family:inherit;font-size:14px";
+        ed.appendChild(i2);
+        inputsProps.push(i2);
+      });
+    }
+
     const btn = document.createElement("button");
     btn.className = "enregistrer";
     btn.textContent = "💾 Enregistrer la carte " + n;
     btn.addEventListener("click", () => {
       const valeurs = {};
       ed.querySelectorAll("[data-cle]").forEach(ch => { valeurs[ch.dataset.cle] = ch.value.trim(); });
-      envoyer("majCarte", { n, variantes: { [filtreActif]: valeurs } });
+      if (inputsProps) {
+        const props = inputsProps.map(i2 => i2.value.trim());
+        valeurs.propositions = props.filter(Boolean).length >= 2 && props[0] ? props.filter(Boolean) : [];
+      }
+      const meta = { type: selType.value };
+      rangeeNombres.querySelectorAll("[data-meta]").forEach(i2 => {
+        meta[i2.dataset.meta] = i2.value === "" ? "" : +i2.value;
+      });
+      if (selEffet) meta.effet = selEffet.value;
+      if (champValeur) meta.valeur = champValeur.value === "" ? "" : +champValeur.value;
+      envoyer("majCarte", { n, carte: meta, variantes: { [filtreActif]: valeurs } });
       notifier("✔ Carte " + n + " enregistrée");
     });
     ed.appendChild(btn);
     ligne.appendChild(ed);
     liste.appendChild(ligne);
   }
+  rendreJeux();
 }
+
+/* ------------------------------------------------ Mes jeux (configs nommées) */
+
+function rendreJeux() {
+  if (!catalogue) return;
+  $("jeu-actif").textContent = catalogue.jeuActif
+    ? "Jeu actif : « " + catalogue.jeuActif + " »"
+    : "Jeu actif : cartes de base (non enregistré)";
+  const zone = $("liste-jeux");
+  zone.innerHTML = "";
+  const jeux = catalogue.jeux || [];
+  if (!jeux.length) {
+    zone.innerHTML = "<div style='font-size:12px;color:rgba(255,255,255,.5)'>Aucun jeu enregistré. Personnalise tes cartes puis donne un nom à ta config !</div>";
+    return;
+  }
+  for (const j of jeux) {
+    const ligne = document.createElement("div");
+    ligne.style.cssText = "display:flex;gap:6px;align-items:center";
+    const nom = document.createElement("div");
+    nom.style.cssText = "flex:1;font-size:14px;font-weight:700" + (j.nom === catalogue.jeuActif ? ";color:#7CFF9B" : "");
+    nom.textContent = (j.nom === catalogue.jeuActif ? "▶ " : "") + j.nom;
+    const date = document.createElement("div");
+    date.style.cssText = "font-size:11px;color:rgba(255,255,255,.45)";
+    date.textContent = new Date(j.date).toLocaleDateString("fr-FR");
+    const bCharger = bouton("▶ Lancer", "bleu", () => {
+      envoyer("chargerJeu", { nom: j.nom });
+      notifier("▶ Jeu « " + j.nom + " » chargé");
+    });
+    bCharger.style.cssText = "font-size:12px;padding:8px 10px";
+    const bSuppr = bouton("🗑", "rouge", () => {
+      if (confirm("Supprimer le jeu « " + j.nom + " » ?")) {
+        envoyer("supprimerJeu", { nom: j.nom });
+        notifier("🗑 Jeu supprimé");
+      }
+    });
+    bSuppr.style.cssText = "font-size:12px;padding:8px 10px";
+    ligne.appendChild(nom); ligne.appendChild(date); ligne.appendChild(bCharger); ligne.appendChild(bSuppr);
+    zone.appendChild(ligne);
+  }
+}
+
+$("btn-sauver-jeu").addEventListener("click", () => {
+  const nom = $("nom-jeu").value.trim();
+  if (!nom) { notifier("⚠ Donne un nom à ton jeu"); return; }
+  envoyer("sauverJeu", { nom });
+  $("nom-jeu").value = "";
+  notifier("💾 Jeu « " + nom + " » enregistré");
+});
+
+$("btn-defi").addEventListener("click", () => envoyer("defiSurprise"));
 
 function notifier(txt) {
   const n = document.createElement("div");
