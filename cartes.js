@@ -77,6 +77,37 @@ const CONFIG = {
   // Équipe qui commence
   premierTour: "enfants",
 
+  // ⏳ ÉCRAN D'ATTENTE : les panneaux qui défilent avant le début de la
+  // veillée (pendant que la salle s'installe). Modifie-les librement !
+  regles: [
+    {
+      titre: "COMMENT ON JOUE ?",
+      lignes: [
+        "🎴 Chacun son tour, une équipe choisit une carte",
+        "❓ Personne ne sait ce qu'elle cache…",
+        "⭐ Épreuve réussie = des points pour l'équipe !",
+        "🏆 L'équipe qui a le plus de points gagne la veillée",
+      ],
+    },
+    {
+      titre: "LES ÉPREUVES",
+      lignes: [
+        "🎵 Blind tests   🎭 Mimes   ❓ Questions",
+        "😈 Questions diaboliques (à vous de tricher !)",
+        "🕺 Just Dance   💪 Défis   🎁 Bonus   💣 Malus",
+        "🆘 3 « Appels aux Anims » par équipe",
+      ],
+    },
+    {
+      titre: "PRÊTS ?",
+      lignes: [
+        "📣 On commence par le BRUIT-O-MÈTRE :",
+        "l'équipe qui crie le plus fort commence !",
+        "🔊 Échauffez vos cordes vocales…",
+      ],
+    },
+  ],
+
   // 🆘 JOKERS « APPEL AUX ANIMS » : nombre de jokers par équipe au départ.
   // (Ajustables en cours de partie depuis la télécommande.)
   jokersParEquipe: 3,

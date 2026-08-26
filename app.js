@@ -163,6 +163,127 @@ const sons = {
   victoire() { [523, 659, 784, 1047, 784, 1047, 1319, 1568].forEach((f, i) => bip(f, i * .14, .35, "triangle", .22)); },
 };
 
+/* ---------------------------------------------------------------- Table de sons 🔊 (télécommande) */
+
+// Note qui glisse d'une fréquence à l'autre
+function glissando(f1, f2, debut, duree, type, vol) {
+  const c = ctx();
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type || "sawtooth";
+  o.frequency.setValueAtTime(f1, c.currentTime + debut);
+  o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), c.currentTime + debut + duree);
+  g.gain.setValueAtTime(0, c.currentTime + debut);
+  g.gain.linearRampToValueAtTime(vol, c.currentTime + debut + 0.04);
+  g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + debut + duree);
+  o.connect(g); g.connect(c.destination);
+  o.start(c.currentTime + debut); o.stop(c.currentTime + debut + duree + 0.05);
+}
+
+const TABLE_SONS = {
+  applaudissements: {
+    emoji: "👏", nom: "Applaudissements",
+    jouer() { for (let i = 0; i < 60; i++) bruit(i * 0.035 + Math.random() * 0.03, 0.05, 0.06 + Math.random() * 0.1, 2200 + Math.random() * 4000); },
+  },
+  tada: {
+    emoji: "🎉", nom: "Ta-daaa !",
+    jouer() {
+      [523, 659].forEach(f => bip(f, 0, .16, "triangle", .22));
+      [698, 880, 1047, 1319].forEach(f => bip(f, .22, .9, "triangle", .2));
+      for (let i = 0; i < 12; i++) bruit(.22 + i * .04, .06, .07, 5000 + Math.random() * 3000);
+    },
+  },
+  buzzer: {
+    emoji: "❌", nom: "Buzzer (raté)",
+    jouer() { bip(140, 0, .8, "sawtooth", .3); bip(147, 0, .8, "sawtooth", .3); },
+  },
+  ding: {
+    emoji: "🔔", nom: "Ding (bonne réponse)",
+    jouer() { [1568, 2093, 3136].forEach((f, i) => bip(f, i * .015, 1.4 - i * .3, "sine", .22 - i * .05)); },
+  },
+  roulement: {
+    emoji: "🥁", nom: "Roulement",
+    jouer() { let t = 0, pas = .09; while (t < 2) { bruit(t, .05, .28, 700 + Math.random() * 300); t += pas; pas = Math.max(.028, pas * .94); } bruit(2, .5, .3, 6000, "highpass"); },
+  },
+  rire: {
+    emoji: "😂", nom: "Rire",
+    jouer() {
+      for (let i = 0; i < 6; i++) {
+        const base = 420 - i * 22;
+        glissando(base, base * 0.72, i * 0.13, 0.11, "square", 0.14);
+      }
+    },
+  },
+  ooh: {
+    emoji: "😮", nom: "Oooooh…",
+    jouer() {
+      glissando(430, 190, 0, 1.5, "sawtooth", .13);
+      glissando(216, 96, 0.02, 1.5, "triangle", .11);
+      bruit(0, 1.4, .05, 700, "lowpass");
+    },
+  },
+  boum: {
+    emoji: "💥", nom: "Boum !",
+    jouer() { glissando(180, 30, 0, .7, "sine", .5); bruit(0, .5, .3, 400, "lowpass"); bruit(0, .25, .2, 6000, "highpass"); },
+  },
+  tictac: {
+    emoji: "⏰", nom: "Tic-tac",
+    jouer() { for (let i = 0; i < 8; i++) bruit(i * .35, .03, .22, i % 2 ? 1500 : 2400); },
+  },
+  whoosh: {
+    emoji: "💨", nom: "Whoosh",
+    jouer() { const c = ctx(); const n = Math.floor(c.sampleRate * .6); const b = c.createBuffer(1, n, c.sampleRate); const d = b.getChannelData(0); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n); const s = c.createBufferSource(); s.buffer = b; const f = c.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 1.2; f.frequency.setValueAtTime(300, c.currentTime); f.frequency.exponentialRampToValueAtTime(5000, c.currentTime + .3); f.frequency.exponentialRampToValueAtTime(400, c.currentTime + .6); const g = c.createGain(); g.gain.value = .3; s.connect(f); f.connect(g); g.connect(c.destination); s.start(); },
+  },
+};
+
+function jouerSonTable(id) {
+  const s = TABLE_SONS[id];
+  if (!s) return;
+  ctxSiPossible();
+  try { s.jouer(); } catch (e) {}
+  // Petit visuel pour que la salle voie d'où vient le bruit
+  const el = $("son-visuel");
+  el.textContent = s.emoji;
+  el.classList.remove("montre");
+  void el.offsetWidth;
+  el.classList.add("montre");
+}
+
+/* ---------------------------------------------------------------- Écran d'attente ⏳ */
+
+let panneauAttente = 0;
+
+function construireAttente() {
+  const zone = $("attente-zone");
+  const points = $("attente-points");
+  (CONFIG.regles || []).forEach((r) => {
+    const p = document.createElement("div");
+    p.className = "panneau-attente";
+    const lignes = (r.lignes || []).map(l => `<div class="pa-ligne">${l}</div>`).join("");
+    p.innerHTML = `<div class="pa-titre">${r.titre || ""}</div><div class="pa-liste">${lignes}</div>`;
+    zone.appendChild(p);
+  });
+  // Petits points indicateurs sous les panneaux
+  points.innerHTML = "";
+  zone.querySelectorAll(".panneau-attente").forEach((_, i) => {
+    const d = document.createElement("div");
+    d.className = "pa-point" + (i === 0 ? " actif" : "");
+    points.appendChild(d);
+  });
+}
+
+function tournerAttente() {
+  const panneaux = document.querySelectorAll(".panneau-attente");
+  const points = document.querySelectorAll(".pa-point");
+  if (panneaux.length < 2) return;
+  panneaux[panneauAttente].classList.remove("actif");
+  if (points[panneauAttente]) points[panneauAttente].classList.remove("actif");
+  panneauAttente = (panneauAttente + 1) % panneaux.length;
+  panneaux[panneauAttente].classList.add("actif");
+  if (points[panneauAttente]) points[panneauAttente].classList.add("actif");
+}
+
+setInterval(() => { if (ecranActuel === "titre") tournerAttente(); }, 7000);
+
 /* ---------------------------------------------------------------- Utilitaires DOM */
 
 const $ = (id) => document.getElementById(id);
@@ -1909,6 +2030,7 @@ function executerCommande(d) {
     case "victoire":   ecranStats(); break;
     case "podium":     if (sequenceBonus.enCours) sauterBonus(); else ecranVictoire(); break;
     case "image":      basculerImage(); break;
+    case "son":        jouerSonTable(d.id); break;
     case "joker":      ajusterJoker(d.equipe, +d.delta || 0); break;
     case "reset":      resetSansConfirmation(); break;
   }
@@ -2645,6 +2767,7 @@ document.querySelectorAll(".dcc-btn").forEach(b => {
 /* ---------------------------------------------------------------- Démarrage */
 
 chargerModifsCartes();
+construireAttente();
 charger();
 construireMur();
 rafraichirBandeau();

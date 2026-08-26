@@ -118,8 +118,50 @@ html, body {
 }
 .ecran.actif { display: flex; }
 
-/* ====== ÉCRAN TITRE ====== */
-#ecran-titre { justify-content: center; gap: 2vh; text-align: center; }
+/* ====== ÉCRAN TITRE / ATTENTE ====== */
+#ecran-titre { justify-content: flex-end; gap: 2vh; text-align: center; padding-bottom: 2vh; }
+#attente-zone { position: relative; width: 100%; flex: 1; }
+.panneau-attente {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh;
+  opacity: 0; transform: translateY(3vh) scale(.97);
+  transition: opacity .8s ease, transform .8s ease;
+  pointer-events: none;
+}
+.panneau-attente.actif { opacity: 1; transform: translateY(0) scale(1); }
+.pa-titre {
+  font-family: var(--font-titre); font-size: 6.5vh; color: var(--or);
+  text-shadow: 0 0 35px rgba(255, 210, 74, .65);
+}
+.pa-liste { display: flex; flex-direction: column; gap: 2.2vh; }
+.pa-ligne { font-size: 3.4vh; font-weight: 700; }
+.panneau-attente.actif .pa-ligne { animation: fait-entre .6s ease backwards; }
+.panneau-attente.actif .pa-ligne:nth-child(1) { animation-delay: .25s; }
+.panneau-attente.actif .pa-ligne:nth-child(2) { animation-delay: .45s; }
+.panneau-attente.actif .pa-ligne:nth-child(3) { animation-delay: .65s; }
+.panneau-attente.actif .pa-ligne:nth-child(4) { animation-delay: .85s; }
+.pa-points { display: flex; gap: 1.2vw; justify-content: center; margin-top: 1vh; }
+.pa-point {
+  width: 1.4vh; height: 1.4vh; border-radius: 50%;
+  background: rgba(255, 255, 255, .25);
+  transition: background .4s, transform .4s;
+}
+.pa-point.actif { background: var(--or); transform: scale(1.35); }
+
+/* Emoji projeté par la table de sons de la télécommande */
+#son-visuel {
+  position: fixed; top: 42%; left: 50%;
+  font-size: 22vh; z-index: 96;
+  pointer-events: none; opacity: 0;
+  transform: translate(-50%, -50%);
+}
+#son-visuel.montre { animation: son-flash 1.3s cubic-bezier(.2, 1.4, .4, 1) forwards; }
+@keyframes son-flash {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(.2) rotate(-18deg); }
+  25%  { opacity: .95; transform: translate(-50%, -50%) scale(1.15) rotate(6deg); }
+  70%  { opacity: .9; transform: translate(-50%, -50%) scale(1) rotate(0); }
+  100% { opacity: 0; transform: translate(-50%, -55%) scale(1.1); }
+}
 #titre-logo {
   height: 30vh;
   filter: drop-shadow(0 1.5vh 3vh rgba(0, 0, 0, .5));
@@ -1104,12 +1146,18 @@ html, body {
 
 <!-- ÉCRAN TITRE -->
 <div id="ecran-titre" class="ecran actif">
-  <img id="titre-logo" src="images/logo.png" alt="" onerror="this.style.display='none'">
-  <div id="titre-principal">
-    <span class="enfants">ENFANTS</span>
-    <span class="vs">VS</span>
-    <span class="parents">PARENTS</span>
+  <div id="attente-zone">
+    <div class="panneau-attente actif">
+      <img id="titre-logo" src="images/logo.png" alt="" onerror="this.style.display='none'">
+      <div id="titre-principal">
+        <span class="enfants">ENFANTS</span>
+        <span class="vs">VS</span>
+        <span class="parents">PARENTS</span>
+      </div>
+    </div>
+    <!-- les panneaux de règles sont ajoutés ici par app.js -->
   </div>
+  <div class="pa-points" id="attente-points"></div>
   <div id="titre-appuyez">Appuyez sur ESPACE pour commencer</div>
   <img id="titre-mascotte" src="images/lilou-salut.png" alt="" onerror="this.style.display='none'">
   <div id="titre-code"></div>
@@ -1263,6 +1311,9 @@ html, body {
 <!-- MASCOTTE COUCOU -->
 <div id="mascotte-coucou"><img src="" alt=""></div>
 
+<!-- EMOJI DE LA TABLE DE SONS -->
+<div id="son-visuel"></div>
+
 <!-- TOAST PUBLIC CHANTE -->
 <div id="public-chante"><span id="public-chante-icone">🎤</span><span id="public-chante-texte"></span></div>
 
@@ -1370,7 +1421,7 @@ html, body {
 
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <!-- Le ?v= force le navigateur à recharger les fichiers après une mise à jour -->
-<script src="cartes.js?v=16"></script>
-<script src="app.js?v=16"></script>
+<script src="cartes.js?v=17"></script>
+<script src="app.js?v=17"></script>
 </body>
 </html>

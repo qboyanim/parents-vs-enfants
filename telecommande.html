@@ -111,6 +111,17 @@ button:disabled { opacity: .35; }
 #bas button { flex: 1; font-size: 13px; padding: 10px 6px; }
 #etat-connexion { text-align: center; font-size: 12px; color: rgba(255,255,255,.5); }
 
+/* --- Onglet Sons --- */
+#table-sons { display: none; flex-direction: column; gap: 12px; }
+#table-sons.actif { display: flex; }
+#grille-sons { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+#grille-sons button {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 16px 6px; font-size: 13px;
+  background: linear-gradient(160deg, #4a1a9e, #2d0d63);
+}
+#grille-sons button .emo { font-size: 30px; }
+
 /* --- Onglet Cartes (édition) --- */
 #parametres { display: none; flex-direction: column; gap: 10px; }
 #parametres.actif { display: flex; }
@@ -166,7 +177,16 @@ button:disabled { opacity: .35; }
 <!-- ONGLETS -->
 <div id="onglets">
   <button id="ong-jeu" class="choisi">🎮 Jeu</button>
+  <button id="ong-sons">🔊 Sons</button>
   <button id="ong-cartes">🗂 Cartes</button>
+</div>
+
+<!-- TABLE DE SONS -->
+<div id="table-sons">
+  <div style="font-size:13px;color:rgba(255,255,255,.65);text-align:center;line-height:1.4">
+    Ponctue la soirée ! Le son part sur le grand écran, avec un petit visuel.
+  </div>
+  <div id="grille-sons"></div>
 </div>
 
 <!-- PILOTAGE -->
@@ -342,15 +362,43 @@ function envoyer(cmd, extra) {
 /* ------------------------------------------------ Onglets */
 
 $("ong-jeu").addEventListener("click", () => choisirOnglet("jeu"));
+$("ong-sons").addEventListener("click", () => choisirOnglet("sons"));
 $("ong-cartes").addEventListener("click", () => choisirOnglet("cartes"));
 
 function choisirOnglet(o) {
   $("ong-jeu").classList.toggle("choisi", o === "jeu");
+  $("ong-sons").classList.toggle("choisi", o === "sons");
   $("ong-cartes").classList.toggle("choisi", o === "cartes");
   $("pilotage").classList.toggle("actif", o === "jeu");
+  $("table-sons").classList.toggle("actif", o === "sons");
   $("parametres").classList.toggle("actif", o === "cartes");
   if (o === "cartes") rendreCartes();
 }
+
+/* ------------------------------------------------ Table de sons */
+
+const SONS_DISPO = [
+  ["applaudissements", "👏", "Applaudissements"],
+  ["tada", "🎉", "Ta-daaa !"],
+  ["ding", "🔔", "Bonne réponse"],
+  ["buzzer", "❌", "Buzzer raté"],
+  ["roulement", "🥁", "Roulement"],
+  ["rire", "😂", "Rire"],
+  ["ooh", "😮", "Oooooh…"],
+  ["boum", "💥", "Boum !"],
+  ["tictac", "⏰", "Tic-tac"],
+  ["whoosh", "💨", "Whoosh"],
+];
+
+(function construireGrilleSons() {
+  const g = $("grille-sons");
+  for (const [id, emo, nom] of SONS_DISPO) {
+    const b = document.createElement("button");
+    b.innerHTML = `<span class="emo">${emo}</span><span>${nom}</span>`;
+    b.addEventListener("click", () => envoyer("son", { id }));
+    g.appendChild(b);
+  }
+})();
 
 /* ------------------------------------------------ Rendu du jeu */
 

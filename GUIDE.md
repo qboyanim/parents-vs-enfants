@@ -176,6 +176,22 @@ haut de `cartes.js` (mets `0` pour ne jamais cacher les scores).
 - Le mur affiche le **nombre de cartes restantes** ; quand la dernière carte
   est jouée, l'écran de victoire se lance tout seul.
 
+## ⏳ L'écran d'attente
+
+Avant que tu lances la veillée, l'écran fait défiler tout seul quatre
+panneaux (7 secondes chacun) : le logo, « COMMENT ON JOUE ? », « LES
+ÉPREUVES » et « PRÊTS ? ». De quoi occuper l'écran pendant que la salle
+s'installe et mettre les règles dans toutes les têtes sans que tu aies à les
+répéter. Le contenu se modifie en haut de `cartes.js` (champ `regles`).
+
+## 🔊 La table de sons
+
+Onglet **🔊 Sons** de la télécommande : dix effets à déclencher à tout moment
+pour ponctuer la soirée — 👏 applaudissements, 🎉 ta-daaa, 🔔 bonne réponse,
+❌ buzzer, 🥁 roulement, 😂 rire, 😮 oooooh, 💥 boum, ⏰ tic-tac, 💨 whoosh.
+Le son sort sur l'ordinateur (donc dans la sono) et un gros emoji apparaît
+brièvement à l'écran pour que la salle voie d'où vient le bruit.
+
 ## 🔊 Bruit-o-mètre : qui commence ?
 
 Pour lancer la soirée : touche `B` (ou « 🔊 Bruit-o-mètre » sur le téléphone).
