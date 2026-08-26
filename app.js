@@ -640,26 +640,183 @@ function creerIframeYT(id) {
   return f;
 }
 
+/* ------- Rideau de théâtre : velours rouge animé, dessiné sur canvas ------- */
+
 function creerRideau() {
   const rideau = document.createElement("div");
   rideau.className = "video-rideau";
   rideau.innerHTML =
-    `<div class="rideau-pan gauche"></div>
-     <div class="rideau-pan droit"></div>
-     <div class="rideau-valance"></div>
+    `<canvas></canvas>
      <div class="rideau-texte">🎵 ❓ 🎵<div class="note">Écoutez bien… l'image est cachée !</div></div>`;
+  rideau._moteur = new RideauTheatre(rideau);
   return rideau;
 }
 
-// Ouverture théâtrale : les pans se froncent, le lambrequin remonte,
-// puis le rideau disparaît du DOM visuel (retrait de .cache)
+class RideauTheatre {
+  constructor(el) {
+    this.el = el;
+    this.canvas = el.querySelector("canvas");
+    this.ctx = this.canvas.getContext("2d");
+    this.mode = "ferme";           // ferme -> ouverture -> ouvert
+    this.t0 = performance.now();
+    this.debutOuv = 0;
+    this.finCb = null;
+    this.seed = Math.random() * 100;
+    this.boucle = this.boucle.bind(this);
+    requestAnimationFrame(this.boucle);
+  }
+
+  ouvrir(cb) {
+    if (this.mode !== "ferme") return;
+    this.mode = "ouverture";
+    this.debutOuv = performance.now();
+    this.finCb = cb;
+    this.el.classList.add("ouvre");
+  }
+
+  boucle(maintenant) {
+    if (!this.canvas.isConnected) return; // rideau retiré du DOM : on s'arrête
+    const w = this.el.clientWidth, h = this.el.clientHeight;
+    if (!w || !h) { requestAnimationFrame(this.boucle); return; }
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = Math.round(w * dpr), H = Math.round(h * dpr);
+    if (this.canvas.width !== W || this.canvas.height !== H) {
+      this.canvas.width = W; this.canvas.height = H;
+    }
+
+    const t = (maintenant - this.t0) / 1000;
+    let p = 0;
+    if (this.mode === "ouverture") {
+      const x = (maintenant - this.debutOuv) / 2100;
+      if (x >= 1.1) {
+        this.mode = "ouvert";
+        this.ctx.clearRect(0, 0, W, H);
+        if (this.finCb) this.finCb();
+        return;
+      }
+      p = courbeOuverture(Math.min(1, x));
+    }
+    dessinerRideau(this.ctx, W, H, t, p, this.seed);
+    requestAnimationFrame(this.boucle);
+  }
+}
+
+// Petit élan vers le centre, puis grande ouverture souple
+function courbeOuverture(x) {
+  const elan = Math.sin(Math.min(x, .16) / .16 * Math.PI) * .05;
+  const c = x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+  return c - elan * (1 - c);
+}
+
+function dessinerRideau(ctx, W, H, t, p, seed) {
+  ctx.clearRect(0, 0, W, H);
+  const valH = H * 0.14;
+  const plis = 7;                                   // grands plis par pan
+  const largBase = W / 2 + W * 0.004;               // léger recouvrement au centre
+  const larg = Math.max(2, largBase * (1 - 0.945 * Math.max(0, p)) * (1 - Math.min(0, p) * 1.2));
+  const pas = Math.max(2, Math.round(W / 380));
+  const contraste = 1 + Math.max(0, p) * 0.9;       // le tissu froncé marque plus les plis
+  const cisaille = 0.11 * Math.sin(Math.min(1, Math.max(0, p) * 1.12) * Math.PI); // le bas traîne
+
+  const cisH = cisaille * H;
+  for (const dir of [-1, 1]) {                      // -1 = pan gauche, 1 = pan droit
+    ctx.save();
+    ctx.transform(1, 0, dir * -cisaille, 1, dir === 1 ? cisH : 0, 0);
+    const phase = seed + (dir > 0 ? 2.7 : 0);
+    // On déborde de cisH côté extérieur pour que le pan reste accroché au bord
+    for (let i = -cisH; i < larg; i += pas) {
+      const u = i / largBase;                       // coordonnée "tissu" : les plis se compressent naturellement
+      const houle = Math.sin(t * 0.45 + u * 2.6 + phase) * 0.55;      // respiration lente du velours
+      let f = 0.5
+        + 0.30 * Math.sin(u * plis * 6.283 + phase + houle + p * 5)
+        + 0.13 * Math.sin(u * plis * 13.2 + phase * 1.7 + t * 0.8)
+        + 0.05 * Math.sin(u * 51 + t * 1.4 + phase);
+      f = 0.5 + (f - 0.5) * contraste;
+      f = Math.max(0, Math.min(1, f));
+      const teinte = 351 + 4 * Math.sin(u * plis * 6.283 + phase + 1.2);
+      const lum = 13 + 33 * f;
+      ctx.fillStyle = "hsl(" + teinte + " 72% " + lum + "%)";
+      const x = dir < 0 ? i : W - i - pas;
+      ctx.fillRect(x, 0, pas + 0.6, H);
+    }
+    ctx.restore();
+  }
+
+  // Ombres et lumière de scène (uniquement sur le tissu)
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, larg + cisaille * H, H);
+  ctx.rect(W - larg - cisaille * H, 0, larg + cisaille * H, H);
+  ctx.clip();
+  let g = ctx.createLinearGradient(0, 0, 0, H * 0.16);
+  g.addColorStop(0, "rgba(0,0,0,.5)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H * 0.16);
+  g = ctx.createLinearGradient(0, H * 0.72, 0, H);
+  g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.42)");
+  ctx.fillStyle = g; ctx.fillRect(0, H * 0.72, W, H * 0.28);
+  const projecteur = ctx.createRadialGradient(W / 2, H * 0.42, 0, W / 2, H * 0.42, W * 0.55);
+  projecteur.addColorStop(0, "rgba(255,214,150,.14)");
+  projecteur.addColorStop(1, "rgba(255,214,150,0)");
+  ctx.globalCompositeOperation = "screen";
+  ctx.fillStyle = projecteur; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+
+  // Lambrequin : festons drapés + galon et pampilles dorés (remonte à l'ouverture)
+  const p2 = Math.max(0, Math.min(1, (p - 0.3) / 0.6));
+  const vy = -p2 * p2 * valH * 1.8;
+  if (vy > -valH * 1.6) {
+    const nbFestons = Math.max(3, Math.round(W / (H * 0.9)) * 3);
+    const fw = W / nbFestons;
+    for (let k = 0; k < nbFestons; k++) {
+      const x0 = k * fw;
+      const bas = valH * (0.62 + 0.05 * Math.sin(t * 0.6 + k * 1.7 + seed));
+      const gv = ctx.createLinearGradient(0, vy, 0, vy + valH * 1.3);
+      gv.addColorStop(0, "hsl(352 74% 34%)");
+      gv.addColorStop(.55, "hsl(351 72% 24%)");
+      gv.addColorStop(1, "hsl(350 75% 15%)");
+      ctx.fillStyle = gv;
+      ctx.beginPath();
+      ctx.moveTo(x0 - 1, vy);
+      ctx.lineTo(x0 - 1, vy + bas);
+      ctx.quadraticCurveTo(x0 + fw / 2, vy + valH * 1.35, x0 + fw + 1, vy + bas);
+      ctx.lineTo(x0 + fw + 1, vy);
+      ctx.closePath();
+      ctx.fill();
+      // galon doré le long du feston
+      ctx.strokeStyle = "rgba(255,205,80,.95)";
+      ctx.lineWidth = Math.max(1.5, H * 0.008);
+      ctx.beginPath();
+      ctx.moveTo(x0, vy + bas);
+      ctx.quadraticCurveTo(x0 + fw / 2, vy + valH * 1.33, x0 + fw, vy + bas);
+      ctx.stroke();
+      // pampille à chaque jonction
+      ctx.fillStyle = "#ffd24a";
+      ctx.beginPath();
+      ctx.arc(x0 + fw, vy + bas + H * 0.004, Math.max(2, H * 0.011), 0, 6.283);
+      ctx.fill();
+    }
+    // tringle dorée tout en haut
+    const rod = ctx.createLinearGradient(0, vy, 0, vy + H * 0.018);
+    rod.addColorStop(0, "#ffe9a8"); rod.addColorStop(.5, "#d9a520"); rod.addColorStop(1, "#8a6a00");
+    ctx.fillStyle = rod;
+    ctx.fillRect(0, vy, W, H * 0.018);
+  }
+}
+
+// Ouverture théâtrale : le tissu se fronce vers les côtés en dévoilant le clip,
+// puis le rideau disparaît (retrait de .cache)
 function ouvrirRideau(porteur) {
   if (!porteur || !porteur.classList.contains("cache")) return;
   const rideau = porteur.querySelector(".video-rideau");
   if (!rideau || rideau.classList.contains("ouvre")) return;
-  rideau.classList.add("ouvre");
   sons.rideau();
-  setTimeout(() => porteur.classList.remove("cache"), 1800);
+  if (rideau._moteur) {
+    rideau._moteur.ouvrir(() => porteur.classList.remove("cache"));
+  } else {
+    rideau.classList.add("ouvre");
+    setTimeout(() => porteur.classList.remove("cache"), 1800);
+  }
 }
 
 function montrerVideo(contenu, typeCarte, numero) {
