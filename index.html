@@ -190,6 +190,12 @@ html, body {
 }
 #panneau-enfants.a-toi { border-color: var(--bleu-enfants); box-shadow: 0 0 35px rgba(0,217,255,.55), inset 0 0 25px rgba(0,217,255,.15); }
 #panneau-adultes.a-toi { border-color: var(--rose-parents); box-shadow: 0 0 35px rgba(255,46,136,.55), inset 0 0 25px rgba(255,46,136,.15); }
+/* Jokers « Appel aux Anims » */
+.jokers { display: flex; gap: .25vw; margin-top: .2vh; min-height: 2.8vh; font-size: 2.4vh; }
+#panneau-adultes .jokers { justify-content: flex-end; }
+.joker { filter: drop-shadow(0 0 6px rgba(255, 210, 74, .8)); animation: badge-pop .4s ease; }
+.joker.use { filter: grayscale(1); opacity: .25; }
+
 .badges { display: flex; gap: .4vw; margin-top: .3vh; min-height: 2.6vh; }
 .badge {
   font-size: 1.8vh; font-weight: 700;
@@ -375,6 +381,27 @@ html, body {
 }
 #epreuve-reponse.visible { display: block; animation: tour-pop .45s ease; }
 
+/* Image cachée de la question (révélée avec A) */
+#epreuve-image {
+  display: none;
+  max-height: 42vh; max-width: 70vw;
+  border-radius: 2vh;
+  border: .5vh solid var(--or);
+  box-shadow: 0 0 50px rgba(255, 210, 74, .45), 0 1.5vh 4vh rgba(0, 0, 0, .6);
+  object-fit: contain;
+  background: rgba(0, 0, 0, .4);
+}
+#epreuve-image.visible { display: block; animation: image-apparait .7s cubic-bezier(.3, 1.5, .5, 1); }
+@keyframes image-apparait {
+  0%   { transform: scale(.3) rotate(-8deg); opacity: 0; filter: brightness(3); }
+  60%  { opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; filter: brightness(1); }
+}
+.epreuve-avec-image #epreuve-icone { display: none; }
+.epreuve-avec-image #epreuve-mascotte { display: none; }  /* l'image occupe la scène */
+.epreuve-avec-image #epreuve-texte { font-size: 4.2vh; }
+.epreuve-avec-image #epreuve-centre { gap: 2vh; }
+
 /* Indice de triche — discret */
 #indice {
   position: fixed;
@@ -516,6 +543,86 @@ html, body {
   0% { transform: translateY(0) scale(.5); opacity: 0; }
   20% { transform: translateY(-2vh) scale(1.3); opacity: 1; }
   100% { transform: translateY(-14vh) scale(1); opacity: 0; }
+}
+
+/* ====== ÉCRAN STATISTIQUES ====== */
+#ecran-stats {
+  justify-content: flex-start; gap: 1.5vh; z-index: 70;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(90, 27, 214, .35), transparent 60%),
+              rgba(8, 0, 25, .96);
+  padding: 3vh 4vw 2vh;
+}
+#stats-titre {
+  font-family: var(--font-titre); font-size: 5vh; color: var(--or);
+  text-shadow: 0 0 35px rgba(255, 210, 74, .6);
+  animation: tour-pop .5s ease;
+}
+#stats-corps { display: flex; gap: 3vw; width: 100%; flex: 1; min-height: 0; }
+
+/* Graphique en barres par catégorie */
+#stats-graphe {
+  flex: 1.15;
+  background: rgba(0, 0, 0, .35);
+  border-radius: 2vh; padding: 2vh 1.5vw 1vh;
+  display: flex; flex-direction: column;
+}
+#stats-graphe .titre-bloc { font-family: var(--font-titre); font-size: 2.4vh; color: rgba(255,255,255,.75); margin-bottom: 1vh; }
+#graphe-zone { flex: 1; display: flex; align-items: flex-end; justify-content: space-around; gap: 1vw; min-height: 0; }
+.graphe-cat { display: flex; flex-direction: column; align-items: center; gap: .6vh; height: 100%; justify-content: flex-end; }
+.graphe-paire { display: flex; align-items: flex-end; gap: .45vw; height: 100%; }
+.graphe-barre {
+  width: 2.2vw; border-radius: .6vh .6vh 0 0;
+  height: 0; transition: height 1.1s cubic-bezier(.2, 1.3, .4, 1);
+  position: relative;
+}
+.graphe-barre.e { background: linear-gradient(to top, #006c8a, var(--bleu-enfants)); box-shadow: 0 0 14px rgba(0,217,255,.5); }
+.graphe-barre.a { background: linear-gradient(to top, #8a0044, var(--rose-parents)); box-shadow: 0 0 14px rgba(255,46,136,.5); }
+.graphe-barre span {
+  position: absolute; top: -2.6vh; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-titre); font-size: 1.9vh;
+}
+.graphe-barre.e span { color: var(--bleu-enfants); }
+.graphe-barre.a span { color: var(--rose-parents); }
+.graphe-cat .etiquette { font-size: 2.4vh; }
+.graphe-cat .nom-cat { font-size: 1.3vh; color: rgba(255,255,255,.5); text-align: center; max-width: 7vw; }
+
+/* Colonne de droite : faits marquants + bonus */
+#stats-droite { flex: 1; display: flex; flex-direction: column; gap: 1.2vh; min-height: 0; }
+#stats-faits {
+  background: rgba(0, 0, 0, .35); border-radius: 2vh; padding: 1.5vh 1.5vw;
+  display: flex; flex-direction: column; gap: .8vh;
+}
+#stats-faits .titre-bloc { font-family: var(--font-titre); font-size: 2.2vh; color: rgba(255,255,255,.75); }
+.fait { font-size: 2vh; opacity: 0; transform: translateX(-2vw); }
+.fait.montre { animation: fait-entre .5s ease forwards; }
+@keyframes fait-entre { to { opacity: 1; transform: translateX(0); } }
+.fait b { color: var(--or); }
+
+#stats-bonus {
+  background: rgba(255, 210, 74, .08);
+  border: .3vh solid rgba(255, 210, 74, .45);
+  border-radius: 2vh; padding: 1.5vh 1.5vw;
+  display: flex; flex-direction: column; gap: .8vh;
+  flex: 1; min-height: 0;
+}
+#stats-bonus .titre-bloc { font-family: var(--font-titre); font-size: 2.4vh; color: var(--or); }
+.bonus-fin {
+  display: flex; align-items: center; gap: .8vw;
+  font-size: 2vh;
+  opacity: 0; transform: scale(.7);
+}
+.bonus-fin.montre { animation: bonus-pop .55s cubic-bezier(.3, 1.7, .5, 1) forwards; }
+@keyframes bonus-pop { to { opacity: 1; transform: scale(1); } }
+.bonus-fin .bf-icone { font-size: 3vh; }
+.bonus-fin .bf-titre { font-family: var(--font-titre); color: var(--or); }
+.bonus-fin .bf-pts { margin-left: auto; font-family: var(--font-titre); font-size: 2.6vh; }
+.bonus-fin .bf-pts.e { color: var(--bleu-enfants); }
+.bonus-fin .bf-pts.a { color: var(--rose-parents); }
+.bonus-fin .bf-pts.d { color: var(--or); }
+#stats-suite {
+  font-size: 2.4vh; color: rgba(255, 255, 255, .8);
+  animation: clignote 1.4s ease-in-out infinite;
+  min-height: 3.5vh;
 }
 
 /* ====== ÉCRAN VICTOIRE : LE PODIUM ====== */
@@ -952,6 +1059,7 @@ html, body {
       <div class="infos">
         <div class="nom">ENFANTS</div>
         <div class="score" id="score-enfants">0</div>
+        <div class="jokers" id="jokers-enfants"></div>
         <div class="badges" id="badges-enfants"></div>
       </div>
     </div>
@@ -965,6 +1073,7 @@ html, body {
       <div class="infos">
         <div class="nom">PARENTS</div>
         <div class="score" id="score-adultes">0</div>
+        <div class="jokers" id="jokers-adultes"></div>
         <div class="badges" id="badges-adultes"></div>
       </div>
     </div>
@@ -987,6 +1096,7 @@ html, body {
       <div class="vinyle" id="vinyle2"><div class="centre-vinyle">🎶</div></div>
     </div>
     <div id="video-zone"></div>
+    <img id="epreuve-image" src="" alt="">
     <div id="vitesse-badge"></div>
     <div id="epreuve-texte"></div>
     <div id="epreuve-consigne"></div>
@@ -1004,6 +1114,28 @@ html, body {
 </div>
 
 <!-- ÉCRAN VICTOIRE -->
+<!-- ÉCRAN STATISTIQUES -->
+<div id="ecran-stats" class="ecran">
+  <div id="stats-titre">📊 LES STATS DE LA SOIRÉE 📊</div>
+  <div id="stats-corps">
+    <div id="stats-graphe">
+      <div class="titre-bloc">Points marqués par catégorie</div>
+      <div id="graphe-zone"></div>
+    </div>
+    <div id="stats-droite">
+      <div id="stats-faits">
+        <div class="titre-bloc">⭐ Faits marquants</div>
+        <div id="liste-faits"></div>
+      </div>
+      <div id="stats-bonus">
+        <div class="titre-bloc">🎁 Bonus de fin de partie</div>
+        <div id="liste-bonus-fin"></div>
+      </div>
+    </div>
+  </div>
+  <div id="stats-suite"></div>
+</div>
+
 <div id="ecran-victoire" class="ecran">
   <div id="victoire-entete">🏆 ET LE GAGNANT EST… 🏆</div>
   <div id="podium">
@@ -1158,7 +1290,7 @@ html, body {
 
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <!-- Le ?v= force le navigateur à recharger les fichiers après une mise à jour -->
-<script src="cartes.js?v=14"></script>
-<script src="app.js?v=14"></script>
+<script src="cartes.js?v=15"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>

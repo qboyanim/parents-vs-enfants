@@ -71,6 +71,9 @@ button:disabled { opacity: .35; }
 .eq .pm { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
 .eq .pm button { padding: 8px 0; width: 52px; font-size: 18px; }
 .eq .bdg { font-size: 11px; color: #ffd24a; min-height: 14px; margin-top: 3px; }
+.eq .jk { display: flex; gap: 4px; justify-content: center; align-items: center; margin-top: 5px; }
+.eq .jk button { padding: 6px 0; width: 40px; font-size: 14px; background: #6b4c00; }
+.eq .jk span { font-weight: 900; font-size: 15px; color: #ffd24a; min-width: 16px; }
 
 #tour-bar {
   text-align: center; padding: 10px; border-radius: 12px;
@@ -177,6 +180,11 @@ button:disabled { opacity: .35; }
         <button class="bleu" data-cmd="score" data-eq="enfants" data-d="1">+1</button>
         <button data-cmd="score" data-eq="enfants" data-d="-1">−1</button>
       </div>
+      <div class="jk">
+        <button data-cmd="joker" data-eq="enfants" data-d="-1" title="Utiliser un joker">🆘</button>
+        <span id="jk-enfants">3</span>
+        <button data-cmd="joker" data-eq="enfants" data-d="1" title="Rendre un joker">+</button>
+      </div>
     </div>
     <div class="eq adultes" id="eq-adultes">
       <div class="nom">🧑 PARENTS</div>
@@ -185,6 +193,11 @@ button:disabled { opacity: .35; }
       <div class="pm">
         <button class="rose" data-cmd="score" data-eq="adultes" data-d="1">+1</button>
         <button data-cmd="score" data-eq="adultes" data-d="-1">−1</button>
+      </div>
+      <div class="jk">
+        <button data-cmd="joker" data-eq="adultes" data-d="-1" title="Utiliser un joker">🆘</button>
+        <span id="jk-adultes">3</span>
+        <button data-cmd="joker" data-eq="adultes" data-d="1" title="Rendre un joker">+</button>
       </div>
     </div>
   </div>
@@ -201,7 +214,7 @@ button:disabled { opacity: .35; }
   <button id="btn-bruit" class="violet" style="font-size:15px">🔊 Bruit-o-mètre (qui commence ?)</button>
 
   <div id="bas">
-    <button class="or" data-cmd="victoire">🏆 Fin</button>
+    <button class="or" data-cmd="victoire">📊 Fin</button>
     <button id="btn-nouvelle">♻ Nouvelle partie</button>
   </div>
   <div id="etat-connexion"></div>
@@ -364,6 +377,9 @@ function rendre() {
   $("eq-adultes").classList.toggle("a-toi", etat.tour === "adultes");
   $("tour-bar").textContent = "🔄 Au tour des " + NOMS[etat.tour] + " (toucher pour changer)";
   $("scores-secrets").style.display = etat.scoresCaches ? "block" : "none";
+  const jk = etat.jokers || {};
+  $("jk-enfants").textContent = jk.enfants == null ? "?" : jk.enfants;
+  $("jk-adultes").textContent = jk.adultes == null ? "?" : jk.adultes;
 
   const z = $("zone");
   z.innerHTML = "";
@@ -408,6 +424,12 @@ function rendre() {
     z.appendChild(bouton("▶ DÉMARRER LA VEILLÉE", "vert", () => envoyer("demarrer"), "padding:22px;font-size:19px;width:100%"));
     return;
   }
+  if (etat.ecran === "stats") {
+    z.appendChild(bouton("🏆 VOIR LE PODIUM", "or", () => envoyer("podium"), "width:100%;padding:22px;font-size:19px"));
+    z.appendChild(bouton("⬅ Revenir au mur", "", () => envoyer("retour"), "width:100%;margin-top:8px"));
+    return;
+  }
+
   if (etat.ecran === "victoire") {
     z.appendChild(bouton("⬅ Revenir au mur", "bleu", () => envoyer("retour"), "width:100%;padding:18px"));
     return;
@@ -473,6 +495,7 @@ function rendre() {
     : "⏱ —";
   if (etat.timerTotal) outils.appendChild(bouton(chrono, "bleu", () => envoyer("timer")));
   if (c.indice)  outils.appendChild(bouton("🕵 Indice", "or", () => envoyer("indice")));
+  if (c.image)   outils.appendChild(bouton(c.imageVisible ? "🖼 Cacher" : "🖼 Image", "violet", () => envoyer("image")));
   if (c.reponse) outils.appendChild(bouton("👁 Réponse", "bleu", () => envoyer("reponse")));
   if (c.media)   outils.appendChild(bouton("▶⏸", "violet", () => envoyer("musique")));
   if (outils.children.length) z.appendChild(outils);
@@ -555,6 +578,7 @@ const CHAMPS = [
   ["musique",  "Fichier musique 1 (ou 📂 PC)", "input"],
   ["musique2", "Fichier musique 2 (double blind test)", "input"],
   ["video",    "Fichier vidéo (ou 📂 PC)", "input"],
+  ["image",    "🖼 Image cachée (ou 📂 PC) — touche A pour la dévoiler", "input"],
 ];
 
 document.querySelectorAll("#filtres button").forEach(b => {
@@ -668,14 +692,15 @@ function rendreCartes() {
       (cle === "youtube2" && carte.type === "doubleblindtest") ||
       (cle === "musique" && ["blindtest", "doubleblindtest"].includes(carte.type)) ||
       (cle === "musique2" && carte.type === "doubleblindtest") ||
-      (cle === "video" && carte.type === "video")
+      (cle === "video" && carte.type === "video") ||
+      (cle === "image" && ["question", "triche", "piege"].includes(carte.type))
     );
     for (const [cle, label, tag] of champsUtiles) {
       etiquette(label);
       const champ = document.createElement(tag);
       champ.value = variante[cle] || "";
       champ.dataset.cle = cle;
-      if (["musique", "musique2", "video"].includes(cle)) {
+      if (["musique", "musique2", "video", "image"].includes(cle)) {
         const rangee = document.createElement("div");
         rangee.style.cssText = "display:flex;gap:8px";
         champ.style.flex = "1";
@@ -697,9 +722,20 @@ function rendreCartes() {
     }
 
     // Propositions Duo / Carré / Cash pour les questions
-    let inputsProps = null;
+    let inputsProps = null, selDcc = null;
     if (["question", "triche", "piege"].includes(carte.type)) {
-      etiquette("Duo/Carré/Cash — propositions (laisser vide pour désactiver)");
+      etiquette("🎯 Duo / Carré / Cash sur cette carte");
+      selDcc = document.createElement("select");
+      selDcc.style.cssText = selType.style.cssText;
+      [["1", "✅ Activé"], ["0", "🚫 Désactivé"]].forEach(([v, lb]) => {
+        const o = document.createElement("option");
+        o.value = v; o.textContent = lb;
+        if ((carte.dcc === false ? "0" : "1") === v) o.selected = true;
+        selDcc.appendChild(o);
+      });
+      ed.appendChild(selDcc);
+
+      etiquette("Propositions (la 1re est la bonne — vide = pas de choix possible)");
       inputsProps = [];
       const props = variante.propositions || [];
       const labels = ["✅ BONNE réponse", "✗ Piège 1", "✗ Piège 2", "✗ Piège 3"];
@@ -729,6 +765,7 @@ function rendreCartes() {
       });
       if (selEffet) meta.effet = selEffet.value;
       if (champValeur) meta.valeur = champValeur.value === "" ? "" : +champValeur.value;
+      if (selDcc) meta.dcc = selDcc.value === "1";
       envoyer("majCarte", { n, carte: meta, variantes: { [filtreActif]: valeurs } });
       notifier("✔ Carte " + n + " enregistrée");
     });
@@ -899,6 +936,7 @@ document.querySelectorAll("[data-cmd]").forEach(b => {
   b.addEventListener("click", () => {
     const cmd = b.dataset.cmd;
     if (cmd === "score") envoyer("score", { equipe: b.dataset.eq, delta: +b.dataset.d });
+    else if (cmd === "joker") envoyer("joker", { equipe: b.dataset.eq, delta: +b.dataset.d });
     else envoyer(cmd);
   });
 });

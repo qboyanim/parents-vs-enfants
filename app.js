@@ -25,12 +25,36 @@ const CLE_STOCKAGE = "pve-etat-v1";
 
 /* ---------------------------------------------------------------- État */
 
-let etat = {
-  scores: { enfants: 0, adultes: 0 },
-  tour: CONFIG.premierTour || "enfants",
-  utilisees: {},                       // { numero: "enfants"|"adultes" }
-  badges: { enfants: [], adultes: [] } // ex: [{id:"double", txt:"✨ x2"}]
-};
+function statBase() {
+  return {
+    points: 0, perdus: 0, reussites: 0, echecs: 0,
+    serie: 0, meilleureSerie: 0,
+    parCategorie: {}, dcc: { duo: 0, carre: 0, cash: 0 },
+    bonus: 0, malus: 0, chante: 0, cartes: 0,
+  };
+}
+
+function etatNeuf() {
+  const j = CONFIG.jokersParEquipe == null ? 3 : CONFIG.jokersParEquipe;
+  return {
+    scores: { enfants: 0, adultes: 0 },
+    tour: CONFIG.premierTour || "enfants",
+    utilisees: {},                        // { numero: "enfants"|"adultes" }
+    badges: { enfants: [], adultes: [] }, // ex: [{id:"double", txt:"✨ x2"}]
+    jokers: { enfants: j, adultes: j },   // 🆘 Appel aux Anims
+    stats: { enfants: statBase(), adultes: statBase() },
+    historique: [],                       // [{n, type, equipe, pts}]
+  };
+}
+
+let etat = etatNeuf();
+
+// Accès sûr aux stats (parties sauvegardées avant cette version)
+function stat(equipe) {
+  if (!etat.stats) etat.stats = { enfants: statBase(), adultes: statBase() };
+  if (!etat.stats[equipe]) etat.stats[equipe] = statBase();
+  return etat.stats[equipe];
+}
 
 let carteEnCours = null;   // { numero, carte, equipe, contenu, commun }
 let ecranActuel = "titre";
@@ -50,6 +74,11 @@ function charger() {
     const brut = localStorage.getItem(CLE_STOCKAGE);
     if (brut) etat = Object.assign(etat, JSON.parse(brut));
   } catch (e) {}
+  // Champs ajoutés après coup : on complète les parties déjà commencées
+  const j = CONFIG.jokersParEquipe == null ? 3 : CONFIG.jokersParEquipe;
+  if (!etat.jokers) etat.jokers = { enfants: j, adultes: j };
+  if (!etat.stats) etat.stats = { enfants: statBase(), adultes: statBase() };
+  if (!Array.isArray(etat.historique)) etat.historique = [];
 }
 
 /* ---------------------------------------------------------------- Sons (WebAudio, aucun fichier requis) */
@@ -116,6 +145,12 @@ const sons = {
     [880, 740, 622, 523, 415].forEach((f, i) => bip(f, i * .13, .5, "triangle", .17));
     bruit(.1, 1.1, .09, 1200, "lowpass");
   },
+  appelAnims() {
+    // Sirène courte de secours + petit renfort joyeux
+    [660, 880, 660, 880].forEach((f, i) => bip(f, i * .16, .18, "square", .16));
+    [523, 659, 784].forEach((f, i) => bip(f, .68 + i * .08, .3, "triangle", .18));
+  },
+  statBarre() { bip(300 + Math.random() * 500, 0, .12, "triangle", .11); },
   jingle()   { [440, 554, 659, 880].forEach((f, i) => bip(f, i * .09, .25, "square", .12)); },
   bon()      { [523, 659, 784, 1047].forEach((f, i) => bip(f, i * .1, .3, "triangle", .22)); },
   mauvais()  { bip(220, 0, .3, "sawtooth", .2); bip(155, .25, .5, "sawtooth", .2); },
@@ -218,6 +253,21 @@ function rafraichirBandeau() {
   t.textContent = eq.nom;
   t.style.color = eq.couleur;
   t.style.textShadow = `0 0 25px ${eq.couleur}`;
+  // 🆘 Jokers « Appel aux Anims »
+  const jMax = CONFIG.jokersParEquipe == null ? 3 : CONFIG.jokersParEquipe;
+  for (const equipe of ["enfants", "adultes"]) {
+    const restants = (etat.jokers && etat.jokers[equipe]) || 0;
+    const zone = $("jokers-" + equipe);
+    zone.innerHTML = "";
+    for (let i = 0; i < Math.max(jMax, restants); i++) {
+      const j = document.createElement("span");
+      j.className = "joker" + (i < restants ? "" : " use");
+      j.textContent = "🆘";
+      j.title = "Appel aux Anims";
+      zone.appendChild(j);
+    }
+  }
+
   for (const equipe of ["enfants", "adultes"]) {
     const zone = $("badges-" + equipe);
     zone.innerHTML = "";
@@ -324,11 +374,27 @@ function ouvrirEpreuve() {
   $("epreuve-texte").textContent = contenu.texte || "";
   $("epreuve-consigne").textContent = contenu.consigne || "";
 
-  // Duo / Carré / Cash (si la question a des propositions)
-  carteEnCours.aDcc = Array.isArray(contenu.propositions) &&
+  // Duo / Carré / Cash : activé par défaut sur les questions à propositions,
+  // désactivable carte par carte (champ dcc: false depuis l'éditeur)
+  const dccAutorise = carte.dcc === undefined ? true : !!carte.dcc;
+  carteEnCours.aDcc = dccAutorise &&
+    Array.isArray(contenu.propositions) &&
     contenu.propositions.filter(Boolean).length >= 2 &&
     ["question", "triche", "piege"].includes(carte.type);
   carteEnCours.dccMode = null;
+
+  // Image cachée de la question
+  const img = $("epreuve-image");
+  img.classList.remove("visible");
+  img.removeAttribute("src");
+  $("ecran-epreuve").classList.toggle("epreuve-avec-image", !!contenu.image);
+  if (contenu.image) {
+    resoudreMedia(contenu.image).then((url) => {
+      if (!carteEnCours || carteEnCours.numero !== numero) return;
+      if (!url) { annoncerEpreuve("⚠️ Image introuvable : " + contenu.image); return; }
+      img.src = url;
+    });
+  }
 
   // Petite mascotte selon l'épreuve
   const POSES_EPREUVE = {
@@ -423,6 +489,12 @@ function ajouterBadge(equipe, id, txt) {
 function appliquerEffet(carte, equipe) {
   const adverse = equipe === "enfants" ? "adultes" : "enfants";
   const v = carte.valeur || 0;
+  const st = stat(equipe);
+  st.cartes++;
+  if (carte.type === "bonus") st.bonus++; else if (carte.type === "malus") st.malus++;
+  if (carte.effet === "vol") { st.points += v; stat(adverse).perdus += v; }
+  if (carte.effet === "gain") st.points += v;
+  if (carte.effet === "perte") st.perdus += v;
   switch (carte.effet) {
     case "double":
       ajouterBadge(equipe, "double", "✨ x2");
@@ -488,15 +560,26 @@ function valider(reussi) {
   if (carte.type === "bonus" || carte.type === "malus") { retourMur(true); return; }
 
   consommerBadgesEpreuve(equipe);
+  const st = stat(equipe);
+  st.cartes++;
   if (reussi) {
     const { pts, double } = pointsCalcules(carte, equipe);
     etat.scores[equipe] += pts;
+    st.points += pts;
+    st.reussites++;
+    st.serie++;
+    st.meilleureSerie = Math.max(st.meilleureSerie, st.serie);
+    st.parCategorie[carte.type] = (st.parCategorie[carte.type] || 0) + pts;
+    etat.historique.push({ n: carteEnCours.numero, type: carte.type, equipe, pts });
     afficherResultat("bon", "🎉", "BONNE RÉPONSE !", (double ? "DOUBLE POINTS ! " : "") + "+" + pts, equipe, "+" + pts);
     sons.bon();
   } else {
+    st.echecs++;
+    st.serie = 0;
     let txtPts = "";
     if (carte.perte) {
       etat.scores[equipe] = Math.max(0, etat.scores[equipe] - carte.perte);
+      st.perdus += carte.perte;
       txtPts = "−" + carte.perte;
       pointsFlottants("−" + carte.perte, equipe);
     }
@@ -512,6 +595,14 @@ function validerCommun(gagnant) {
   if (gagnant) {
     const { pts, double } = pointsCalcules(carte, gagnant);
     etat.scores[gagnant] += pts;
+    const sg = stat(gagnant);
+    sg.points += pts;
+    sg.reussites++;
+    sg.cartes++;
+    sg.serie++;
+    sg.meilleureSerie = Math.max(sg.meilleureSerie, sg.serie);
+    sg.parCategorie[carte.type] = (sg.parCategorie[carte.type] || 0) + pts;
+    etat.historique.push({ n: carteEnCours.numero, type: carte.type, equipe: gagnant, pts });
     const eq = CONFIG.equipes[gagnant];
     afficherResultat("bon", eq.icone, "LES " + eq.nom + " GAGNENT !", (double ? "DOUBLE POINTS ! " : "") + "+" + pts, gagnant, "+" + pts);
     sons.bon();
@@ -560,6 +651,8 @@ function retourMur(changerTour) {
   $("timer").classList.remove("visible");
   $("vinyle").classList.remove("visible");
   $("epreuve-mascotte").classList.remove("visible");
+  $("epreuve-image").classList.remove("visible");
+  $("ecran-epreuve").classList.remove("epreuve-avec-image");
   $("dcc-choix").classList.remove("visible");
   $("dcc-mode-badge").classList.remove("visible");
   $("dcc-propositions").classList.remove("visible");
@@ -572,7 +665,7 @@ function retourMur(changerTour) {
   montrerEcran("mur");
   // Toutes les cartes jouées : place au grand final !
   if (Object.keys(etat.utilisees).length >= NB_CARTES) {
-    setTimeout(() => { if (ecranActuel === "mur") ecranVictoire(); }, 1600);
+    setTimeout(() => { if (ecranActuel === "mur") ecranStats(); }, 1600);
   }
 }
 
@@ -635,6 +728,15 @@ function basculerIndice() {
     ind.classList.remove("flash");
     ind.classList.toggle("visible");
   }
+}
+
+// 🖼 Image de la question : cachée jusqu'à ce que le présentateur la dévoile
+function basculerImage() {
+  if (!carteEnCours || !carteEnCours.contenu.image) return;
+  const img = $("epreuve-image");
+  const visible = img.classList.toggle("visible");
+  if (visible) sons.reveal();
+  envoyerEtat();
 }
 
 function basculerReponse() {
@@ -1026,6 +1128,8 @@ function toastGeant(icone, texte, duree) {
 function bonusPublic(equipe) {
   if (!CONFIG.equipes[equipe]) return;
   etat.scores[equipe] += 1;
+  const st = stat(equipe);
+  st.chante++; st.points += 1;
   sons.publicChante();
   pointsFlottants("+1", equipe);
   toastGeant("🎤", "LE PUBLIC CHANTE ! +1 " + CONFIG.equipes[equipe].icone);
@@ -1033,7 +1137,190 @@ function bonusPublic(equipe) {
   rafraichirBandeau();
 }
 
+/* ---------------------------------------------------------------- Jokers « Appel aux Anims » 🆘 */
+
+function ajusterJoker(equipe, delta) {
+  if (!CONFIG.equipes[equipe]) return;
+  if (!etat.jokers) etat.jokers = { enfants: 0, adultes: 0 };
+  const avant = etat.jokers[equipe] || 0;
+  const apres = Math.max(0, Math.min(9, avant + delta));
+  if (apres === avant) return;
+  etat.jokers[equipe] = apres;
+  if (delta < 0) {
+    // Joker dépensé : on annonce l'appel aux anims !
+    sons.appelAnims();
+    toastGeant("🆘", "APPEL AUX ANIMS ! " + CONFIG.equipes[equipe].icone, 2600);
+  }
+  sauvegarder();
+  rafraichirBandeau();
+}
+
 /* ---------------------------------------------------------------- Victoire */
+
+/* ---------------------------------------------------------------- Écran de statistiques 📊 */
+
+/* Les 16 bonus possibles ; 5 sont tirés au hasard à chaque fin de partie.
+   `cible` renvoie "enfants", "adultes", "deux" ou null (bonus non applicable). */
+const BONUS_FIN = [
+  { id: "remontada", icone: "🔥", titre: "LA REMONTADA", detail: "a encaissé le plus de pertes", points: 3,
+    cible: (s) => plusGrand(s, e => s[e].perdus, 1) },
+  { id: "serie", icone: "🎯", titre: "SÉRIE EN OR", detail: "la plus longue série de réussites", points: 3,
+    cible: (s) => plusGrand(s, e => s[e].meilleureSerie, 2) },
+  { id: "blindtest", icone: "🎵", titre: "OREILLE ABSOLUE", detail: "meilleur en blind test", points: 2,
+    cible: (s) => plusGrand(s, e => (s[e].parCategorie.blindtest || 0) + (s[e].parCategorie.doubleblindtest || 0), 1) },
+  { id: "mime", icone: "🎭", titre: "OSCAR DU MIME", detail: "meilleur en mime", points: 2,
+    cible: (s) => plusGrand(s, e => s[e].parCategorie.mime || 0, 1) },
+  { id: "cerveau", icone: "🧠", titre: "LE CERVEAU", detail: "meilleur aux questions", points: 2,
+    cible: (s) => plusGrand(s, e => (s[e].parCategorie.question || 0) + (s[e].parCategorie.triche || 0), 1) },
+  { id: "cash", icone: "💰", titre: "TÊTE BRÛLÉE", detail: "a osé le plus de CASH", points: 3,
+    cible: (s) => plusGrand(s, e => s[e].dcc.cash, 1) },
+  { id: "duo", icone: "🛡️", titre: "LA PRUDENCE PAIE", detail: "a joué le plus de DUO", points: 2,
+    cible: (s) => plusGrand(s, e => s[e].dcc.duo, 1) },
+  { id: "chasseur", icone: "🎁", titre: "CHASSEUR DE BONUS", detail: "a trouvé le plus de bonus", points: 2,
+    cible: (s) => plusGrand(s, e => s[e].bonus, 1) },
+  { id: "poisse", icone: "🌩️", titre: "PRIX DE LA POISSE", detail: "a subi le plus de malus", points: 3,
+    cible: (s) => plusGrand(s, e => s[e].malus, 1) },
+  { id: "sansfaute", icone: "💎", titre: "SANS FAUTE", detail: "n'a raté aucune épreuve", points: 4,
+    cible: (s) => {
+      const ok = ["enfants", "adultes"].filter(e => s[e].cartes > 2 && s[e].echecs === 0);
+      return ok.length === 1 ? ok[0] : (ok.length === 2 ? "deux" : null);
+    } },
+  { id: "supporters", icone: "🎤", titre: "SUPPORTERS EN OR", detail: "le public a le plus chanté pour eux", points: 2,
+    cible: (s) => plusGrand(s, e => s[e].chante, 1) },
+  { id: "outsider", icone: "🐢", titre: "COUP DE POUCE", detail: "l'équipe la plus en retard", points: 3,
+    cible: () => {
+      const d = etat.scores.enfants - etat.scores.adultes;
+      return d === 0 ? null : (d < 0 ? "enfants" : "adultes");
+    } },
+  { id: "courage", icone: "😈", titre: "PRIX DU COURAGE", detail: "a affronté le plus de cartes diaboliques", points: 2,
+    cible: (s) => plusGrand(s, e => (s[e].parCategorie.triche || 0) + (s[e].parCategorie.piege || 0), 1) },
+  { id: "danse", icone: "🕺", titre: "ROI DE LA PISTE", detail: "meilleur aux épreuves vidéo et défis", points: 2,
+    cible: (s) => plusGrand(s, e => (s[e].parCategorie.video || 0) + (s[e].parCategorie.defi || 0), 1) },
+  { id: "equipe", icone: "🤝", titre: "ESPRIT D'ÉQUIPE", detail: "bravo à tout le monde !", points: 2,
+    cible: () => "deux" },
+  { id: "serre", icone: "⚖️", titre: "MATCH SERRÉ", detail: "moins de 3 points d'écart !", points: 1,
+    cible: () => Math.abs(etat.scores.enfants - etat.scores.adultes) <= 2 ? "deux" : null },
+];
+
+// Renvoie l'équipe qui a la plus grande valeur, si l'écart est net et le mini atteint
+function plusGrand(s, valeur, minimum) {
+  const e = valeur("enfants"), a = valeur("adultes");
+  if (e === a) return null;
+  const gagnant = e > a ? "enfants" : "adultes";
+  return valeur(gagnant) >= (minimum || 1) ? gagnant : null;
+}
+
+let statsJeton = 0;
+
+function ecranStats() {
+  const jeton = ++statsJeton;
+  montrerEcran("stats");
+  const s = { enfants: stat("enfants"), adultes: stat("adultes") };
+
+  // --- Graphique par catégorie ---
+  const zone = $("graphe-zone");
+  zone.innerHTML = "";
+  const cats = [...new Set([...Object.keys(s.enfants.parCategorie), ...Object.keys(s.adultes.parCategorie)])];
+  const maxi = Math.max(1, ...cats.map(c => Math.max(s.enfants.parCategorie[c] || 0, s.adultes.parCategorie[c] || 0)));
+  if (!cats.length) {
+    zone.innerHTML = "<div style='color:rgba(255,255,255,.5);font-size:2.2vh;margin:auto'>Aucun point marqué…</div>";
+  }
+  cats.forEach((c, i) => {
+    const cat = CATEGORIES[c] || { nom: c, icone: "❔" };
+    const bloc = document.createElement("div");
+    bloc.className = "graphe-cat";
+    bloc.innerHTML =
+      `<div class="graphe-paire">
+         <div class="graphe-barre e"><span>${s.enfants.parCategorie[c] || 0}</span></div>
+         <div class="graphe-barre a"><span>${s.adultes.parCategorie[c] || 0}</span></div>
+       </div>
+       <div class="etiquette">${cat.icone}</div>
+       <div class="nom-cat">${cat.nom}</div>`;
+    zone.appendChild(bloc);
+    // Les barres poussent l'une après l'autre
+    setTimeout(() => {
+      if (jeton !== statsJeton) return;
+      const barres = bloc.querySelectorAll(".graphe-barre");
+      barres[0].style.height = ((s.enfants.parCategorie[c] || 0) / maxi * 85 + 2) + "%";
+      barres[1].style.height = ((s.adultes.parCategorie[c] || 0) / maxi * 85 + 2) + "%";
+      sons.statBarre();
+    }, 300 + i * 220);
+  });
+
+  // --- Faits marquants ---
+  const faits = $("liste-faits");
+  faits.innerHTML = "";
+  const lignes = [];
+  const meilleure = etat.historique.reduce((m, h) => (!m || h.pts > m.pts ? h : m), null);
+  if (meilleure) {
+    lignes.push(`🃏 Carte la plus rentable : la <b>n°${meilleure.n}</b> (${(CATEGORIES[meilleure.type] || {}).nom || meilleure.type}) — <b>${meilleure.pts} pts</b> pour les ${CONFIG.equipes[meilleure.equipe].nom}`);
+  }
+  const serieMax = s.enfants.meilleureSerie >= s.adultes.meilleureSerie ? "enfants" : "adultes";
+  if (s[serieMax].meilleureSerie > 1) {
+    lignes.push(`🔥 Plus longue série : <b>${s[serieMax].meilleureSerie} réussites d'affilée</b> pour les ${CONFIG.equipes[serieMax].nom}`);
+  }
+  lignes.push(`✅ Réussites : <b>${s.enfants.reussites}</b> 🧒 &nbsp;•&nbsp; <b>${s.adultes.reussites}</b> 🧑`);
+  const totalDcc = ["enfants", "adultes"].reduce((t, e) => t + s[e].dcc.duo + s[e].dcc.carre + s[e].dcc.cash, 0);
+  if (totalDcc) {
+    lignes.push(`💰 CASH tentés : <b>${s.enfants.dcc.cash}</b> 🧒 &nbsp;•&nbsp; <b>${s.adultes.dcc.cash}</b> 🧑`);
+  }
+  lignes.forEach((txt, i) => {
+    const el = document.createElement("div");
+    el.className = "fait";
+    el.innerHTML = txt;
+    faits.appendChild(el);
+    setTimeout(() => { if (jeton === statsJeton) el.classList.add("montre"); }, 1200 + i * 400);
+  });
+
+  // --- 5 bonus tirés au hasard parmi ceux qui s'appliquent ---
+  const liste = $("liste-bonus-fin");
+  liste.innerHTML = "";
+  $("stats-suite").textContent = "";
+  const applicables = BONUS_FIN
+    .map(b => ({ b, cible: b.cible(s) }))
+    .filter(x => x.cible)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 5);
+
+  const debut = 1200 + lignes.length * 400 + 400;
+  applicables.forEach((x, i) => {
+    const el = document.createElement("div");
+    el.className = "bonus-fin";
+    const cible = x.cible;
+    const nom = cible === "deux" ? "LES DEUX ÉQUIPES" : CONFIG.equipes[cible].nom;
+    const classePts = cible === "deux" ? "d" : (cible === "enfants" ? "e" : "a");
+    el.innerHTML =
+      `<span class="bf-icone">${x.b.icone}</span>
+       <span><span class="bf-titre">${x.b.titre}</span> — ${nom}<br>
+       <span style="font-size:1.6vh;color:rgba(255,255,255,.6)">${x.b.detail}</span></span>
+       <span class="bf-pts ${classePts}">+${x.b.points}</span>`;
+    liste.appendChild(el);
+    setTimeout(() => {
+      if (jeton !== statsJeton) return;
+      el.classList.add("montre");
+      // Les points sont attribués en direct
+      if (cible === "deux") {
+        etat.scores.enfants += x.b.points; etat.scores.adultes += x.b.points;
+      } else {
+        etat.scores[cible] += x.b.points;
+      }
+      sauvegarder();
+      rafraichirBandeau();
+      sons.points();
+    }, debut + i * 1300);
+  });
+
+  if (!applicables.length) {
+    liste.innerHTML = "<div style='font-size:2vh;color:rgba(255,255,255,.6)'>Pas de bonus cette fois !</div>";
+  }
+  setTimeout(() => {
+    if (jeton !== statsJeton) return;
+    $("stats-suite").textContent = "▶ ESPACE (ou le bouton du téléphone) pour le PODIUM";
+    envoyerEtat();
+  }, debut + applicables.length * 1300 + 400);
+
+  sons.jingle();
+}
 
 /* Grand final : podium qui sort du sol et compteurs à défilement */
 
@@ -1199,6 +1486,13 @@ document.addEventListener("keydown", (e) => {
   if (k === "s") { toggleDefiSurprise(); return; }
   if (defiSurprise.actif) return; // le reste du clavier est gelé pendant le défi
 
+  // Écran statistiques : ESPACE enchaîne sur le podium
+  if (ecranActuel === "stats") {
+    if (e.key === " " || e.key === "Enter") { e.preventDefault(); ecranVictoire(); }
+    else if (e.key === "Escape") retourMur(false);
+    return;
+  }
+
   // Écran victoire
   if (ecranActuel === "victoire") {
     if (e.key === "Escape") retourMur(false);
@@ -1263,7 +1557,8 @@ document.addEventListener("keydown", (e) => {
     case k === "c":
       etat.tour = etat.tour === "enfants" ? "adultes" : "enfants";
       sauvegarder(); rafraichirBandeau(); return;
-    case k === "f": ecranVictoire(); return;
+    case k === "f": ecranStats(); return;
+    case k === "a": basculerImage(); return;
     case e.key === "Escape":
       if (ecranActuel === "epreuve") {
         // Retour sans valider : la carte redevient disponible
@@ -1306,7 +1601,7 @@ $("btn-gagne-enfants").addEventListener("click", () => validerCommun("enfants"))
 $("btn-gagne-adultes").addEventListener("click", () => validerCommun("adultes"));
 $("btn-personne").addEventListener("click", () => validerCommun(null));
 $("btn-tour").addEventListener("click", () => { etat.tour = etat.tour === "enfants" ? "adultes" : "enfants"; sauvegarder(); rafraichirBandeau(); });
-$("btn-victoire").addEventListener("click", ecranVictoire);
+$("btn-victoire").addEventListener("click", ecranStats);
 $("btn-aide").addEventListener("click", () => $("aide").classList.toggle("visible"));
 $("btn-reset").addEventListener("click", nouvellePartie);
 
@@ -1396,6 +1691,7 @@ function publier(sousTopic, obj, retenu) {
 function envoyerEtat() {
   const msg = {
     type: "etat",
+    jokers: etat.jokers || { enfants: 0, adultes: 0 },
     scores: etat.scores,           // toujours les vrais scores : le présentateur doit savoir
     scoresCaches: scoresCaches(),  // ...mais le public voit « ??? » à l'écran
     tour: etat.tour,
@@ -1437,6 +1733,8 @@ function envoyerEtat() {
       dccPoints: carteEnCours.aDcc ? baremeDcc(carteEnCours.carte) : null,
       propositions: carteEnCours.aDcc ? carteEnCours.contenu.propositions : null,
       double: carteEnCours.carte.type === "doubleblindtest",
+      image: !!carteEnCours.contenu.image,
+      imageVisible: $("epreuve-image").classList.contains("visible"),
       rideaux: carteEnCours.rideaux || null,
     } : null,
   };
@@ -1501,7 +1799,10 @@ function executerCommande(d) {
     case "musique":    basculerMusique(); break;
     case "tour":       etat.tour = etat.tour === "enfants" ? "adultes" : "enfants"; sauvegarder(); rafraichirBandeau(); break;
     case "score":      ajusterScore(d.equipe, d.delta); break;
-    case "victoire":   ecranVictoire(); break;
+    case "victoire":   ecranStats(); break;
+    case "podium":     ecranVictoire(); break;
+    case "image":      basculerImage(); break;
+    case "joker":      ajusterJoker(d.equipe, +d.delta || 0); break;
     case "reset":      resetSansConfirmation(); break;
   }
 }
@@ -1516,8 +1817,8 @@ function ctxSiPossible() {
 const CLE_CARTES = "pve-cartes-v2";     // { base, deck } : le deck actif + la version de cartes.js qui lui a servi de base
 const CLE_JEUX = "pve-jeux-v1";         // jeux nommés : { nom: { date, cartes } }
 const CLE_JEU_ACTIF = "pve-jeu-actif";
-const CHAMPS_EDITABLES = ["texte", "consigne", "reponse", "indice", "secret", "musique", "musique2", "youtube", "youtube2", "video", "propositions"];
-const CHAMPS_CARTE = ["type", "points", "perte", "timer", "effet", "valeur"];
+const CHAMPS_EDITABLES = ["texte", "consigne", "reponse", "indice", "secret", "musique", "musique2", "youtube", "youtube2", "video", "image", "propositions"];
+const CHAMPS_CARTE = ["type", "points", "perte", "timer", "effet", "valeur", "dcc"];
 let CARTES_ORIGINALES = null;  // instantané du cartes.js d'origine
 let DEFIS_ORIGINAUX = null;    // idem pour la liste des défis surprise
 let jeuActif = null;
@@ -1712,6 +2013,7 @@ function choisirModeDcc(mode) {
   const c = carteEnCours;
   if (!c || !c.aDcc || c.dccMode || !["duo", "carre", "cash"].includes(mode)) return;
   c.dccMode = mode;
+  if (!c.commun) stat(c.equipe).dcc[mode]++;
   sons.jingle();
   const bareme = baremeDcc(c.carte);
   $("dcc-choix").classList.remove("visible");
@@ -2063,11 +2365,13 @@ function resoudreMedia(valeur) {
 function demanderFichierPC(d) {
   if (!d || !d.n || !d.cible || !d.champ) return;
   demandeFichier = d;
+  const estImage = d.champ === "image";
   const estAudio = String(d.champ).startsWith("musique");
   $("fichier-detail").textContent =
-    "Carte " + d.n + " (" + d.cible + ") — " + (estAudio ? "fichier audio 🎵" : "fichier vidéo 🎬") +
+    "Carte " + d.n + " (" + d.cible + ") — " +
+    (estImage ? "image 🖼" : estAudio ? "fichier audio 🎵" : "fichier vidéo 🎬") +
     (d.champ === "musique2" ? " (musique n°2)" : "");
-  $("fichier-input").accept = estAudio ? "audio/*" : "video/*";
+  $("fichier-input").accept = estImage ? "image/*" : estAudio ? "audio/*" : "video/*";
   $("fichier-overlay").classList.add("visible");
 }
 
@@ -2096,12 +2400,7 @@ $("fichier-input").addEventListener("change", () => {
 });
 
 function resetSansConfirmation() {
-  etat = {
-    scores: { enfants: 0, adultes: 0 },
-    tour: CONFIG.premierTour || "enfants",
-    utilisees: {},
-    badges: { enfants: [], adultes: [] },
-  };
+  etat = etatNeuf();
   sauvegarder();
   carteEnCours = null;
   rafraichirMur();

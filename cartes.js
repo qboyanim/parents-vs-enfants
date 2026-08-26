@@ -31,6 +31,13 @@
      //                            affichée en grand (Just Dance, extraits…).
      //                            Touche M ou bouton 🎵 pour lancer/mettre en pause.
      //   video:    "videos/fichier.mp4"    -> vidéo locale (dossier videos/ à créer)
+     //   image:    "images/animal.jpg"     -> IMAGE CACHÉE : elle n'apparaît
+     //                            qu'au moment où le présentateur appuie sur A
+     //                            (ou le bouton 🖼 de la télécommande).
+     //                            Idéal pour « Quel animal est sur la photo ? »
+     //                            Un lien https://… fonctionne aussi, et le
+     //                            bouton 📂 PC permet de choisir une image de
+     //                            l'ordinateur depuis la télécommande.
    }
 
    Le type "video" est fait pour les épreuves Just Dance : mets un lien
@@ -69,6 +76,10 @@ const CONFIG = {
 
   // Équipe qui commence
   premierTour: "enfants",
+
+  // 🆘 JOKERS « APPEL AUX ANIMS » : nombre de jokers par équipe au départ.
+  // (Ajustables en cours de partie depuis la télécommande.)
+  jokersParEquipe: 3,
 
   // 🔒 SUSPENSE FINAL : quand il ne reste plus que ce nombre de cartes,
   // les scores affichés au public deviennent « ??? » jusqu'à la victoire.
@@ -154,6 +165,7 @@ const CONFIG = {
         texte: "Citez 5 pays qui ont une frontière avec la France.",
         consigne: "En 30 secondes chrono !",
         reponse: "Espagne, Italie, Suisse, Allemagne, Belgique, Luxembourg, Monaco, Andorre…",
+        propositions: ["Espagne, Italie, Suisse, Belgique, Allemagne", "Espagne, Portugal, Suisse, Belgique, Italie", "Italie, Suisse, Autriche, Belgique, Espagne", "Espagne, Italie, Suisse, Pays-Bas, Belgique"],
       },
     },
 
@@ -196,6 +208,7 @@ const CONFIG = {
         texte: "Quel est le seul mammifère capable de voler ?",
         consigne: "Les deux équipes jouent ! Ouvrez l'œil… 👀",
         reponse: "La chauve-souris 🦇",
+        propositions: ["La chauve-souris", "Le hibou", "L'écureuil volant", "La libellule"],
         indice: "🦇",
       },
     },
@@ -206,6 +219,7 @@ const CONFIG = {
         texte: "Combien de cœurs possède une pieuvre ?",
         consigne: "Les deux équipes jouent ! Un indice se cache peut-être…",
         reponse: "3 cœurs ❤️❤️❤️",
+        propositions: ["3 cœurs", "1 cœur", "2 cœurs", "5 cœurs"],
         indice: "❤️❤️❤️",
       },
     },
@@ -216,6 +230,7 @@ const CONFIG = {
         texte: "Combien de dents possède un adulte, dents de sagesse comprises ?",
         consigne: "Les deux équipes jouent !",
         reponse: "32 dents",
+        propositions: ["32 dents", "28 dents", "30 dents", "36 dents"],
         indice: "🦷 32",
         indiceMode: "flash",
       },
@@ -227,6 +242,7 @@ const CONFIG = {
         texte: "Qui a inventé l'ampoule électrique ?",
         consigne: "Les deux équipes jouent ! (l'indice est peut-être… inutile)",
         reponse: "Thomas Edison",
+        propositions: ["Thomas Edison", "Nikola Tesla", "Alexander Graham Bell", "Benjamin Franklin"],
         // Faux indice volontairement inutile 😈
         indice: "💡 Il avait deux oreilles.",
       },
@@ -238,6 +254,7 @@ const CONFIG = {
         texte: "Quel pays a offert la Statue de la Liberté aux États-Unis ?",
         consigne: "Les deux équipes jouent !",
         reponse: "La France 🇫🇷",
+        propositions: ["La France", "L'Angleterre", "L'Espagne", "L'Italie"],
         indice: "🥖",
       },
     },
@@ -248,6 +265,7 @@ const CONFIG = {
         texte: "Quel est l'animal le plus rapide du monde ?",
         consigne: "Attention, ce n'est pas le guépard… Les deux équipes jouent !",
         reponse: "Le faucon pèlerin (plus de 300 km/h en piqué !)",
+        propositions: ["Le faucon pèlerin", "Le guépard", "L'espadon", "L'autruche"],
         indice: "🦅",
         indiceMode: "flash",
       },

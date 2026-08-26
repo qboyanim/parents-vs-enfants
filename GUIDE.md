@@ -55,13 +55,52 @@ En bas de l'onglet Cartes : personnalise tes cartes, donne un nom à ta config
 Tu peux créer autant de jeux que tu veux et **lancer celui qui correspond à ton
 public** avec « ▶ Lancer ». Les jeux sont stockés sur l'ordinateur de l'écran.
 
+## 🆘 Les jokers « Appel aux Anims »
+
+Chaque équipe démarre avec **3 jokers** affichés sous son score (🆘🆘🆘). Quand
+une équipe en dépense un pour demander de l'aide aux animateurs, appuie sur le
+bouton **🆘** de sa colonne sur la télécommande : sirène, bannière « APPEL AUX
+ANIMS ! » à l'écran, et un joker s'éteint. Le bouton **+** en rend un si tu as
+été trop généreux. Le nombre de départ se règle dans `cartes.js`
+(`jokersParEquipe`).
+
+## 🖼 Questions avec image
+
+Une carte question peut cacher une image (« Quel animal est sur cette photo ? ») :
+1. Tu poses la question, l'image reste **cachée**.
+2. Touche **`A`** (ou le bouton 🖼 du téléphone) → l'image surgit en grand.
+3. Touche `R` → la réponse.
+
+Pour mettre une image : onglet 🗂 Cartes → champ « 🖼 Image cachée ». Tu peux
+coller un lien `https://…` ou toucher **📂 PC** pour choisir une photo de
+l'ordinateur (elle est stockée dans le navigateur, aucun envoi sur internet).
+
+## 📊 L'écran de statistiques (avant le podium)
+
+En fin de partie (touche `F`, bouton 📊 du téléphone, ou automatiquement à la
+dernière carte), un écran de stats s'affiche avant le podium :
+
+- un **graphique animé** des points marqués par catégorie pour chaque équipe ;
+- les **faits marquants** : carte la plus rentable, plus longue série de
+  réussites, nombre de CASH tentés… ;
+- **5 bonus de fin de partie** tirés au hasard parmi 16 (La Remontada, Série en
+  or, Oscar du mime, Tête brûlée, Prix de la poisse, Coup de pouce à l'équipe
+  en retard, Esprit d'équipe…). Les points sont **ajoutés automatiquement** au
+  fur et à mesure de leur révélation — de quoi renverser une partie !
+
+Puis `ESPACE` (ou « 🏆 Voir le podium » sur le téléphone) lance le podium.
+
 ## 🎯 Duo / Carré / Cash
 
-Les questions qui ont des « propositions » déclenchent le choix mythique :
-l'équipe annonce **DUO** (2 choix, moitié des points), **CARRÉ** (4 choix,
-points normaux) ou **CASH** (sans aide, points doublés !). Choisis le mode avec
-les touches `1`/`2`/`3`, un clic sur les boutons de l'écran, ou depuis le
-téléphone. `R` révèle la réponse et surligne la bonne proposition.
+**Toutes les questions** (y compris les diaboliques et la carte piège) ont le
+choix mythique : l'équipe annonce **DUO** (2 choix, moitié des points),
+**CARRÉ** (4 choix, points normaux) ou **CASH** (sans aide, points doublés !).
+Choisis le mode avec les touches `1`/`2`/`3`, un clic sur les boutons de
+l'écran, ou depuis le téléphone. `R` révèle la réponse et surligne la bonne
+proposition.
+
+Tu peux **désactiver le Duo/Carré/Cash carte par carte** : onglet 🗂 Cartes →
+« 🎯 Duo / Carré / Cash sur cette carte » → Activé / Désactivé.
 
 ## 🎵 Pendant les blind tests (télécommande)
 
