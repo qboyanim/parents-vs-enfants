@@ -1054,7 +1054,7 @@ document.addEventListener("keydown", (e) => {
 
   // Écran titre
   if (ecranActuel === "titre") {
-    if (e.key === " " || e.key === "Enter") { montrerEcran("mur"); sons.jingle(); }
+    if (e.key === " " || e.key === "Enter") demarrerVeillee();
     return;
   }
 
@@ -1352,7 +1352,7 @@ function executerCommande(d) {
     case "mesurerBruit": mesurerBruit(d.equipe); return;
   }
   switch (d.cmd) {
-    case "demarrer":  if (ecranActuel === "titre") { montrerEcran("mur"); sons.jingle(); } break;
+    case "demarrer":  demarrerVeillee(); break;
     case "carte":     if (ecranActuel === "mur") choisirCarte(+d.n); break;
     case "valider":   valider(!!d.ok); break;
     case "validerCommun": validerCommun(d.gagnant || null); break;
@@ -1648,6 +1648,21 @@ const bruitometre = {
   tPhase: 0,
 };
 
+// Lancement de la veillée depuis l'écran titre : sur une partie vierge,
+// le bruit-o-mètre s'ouvre automatiquement pour décider qui commence !
+function demarrerVeillee() {
+  if (ecranActuel !== "titre") return;
+  montrerEcran("mur");
+  sons.jingle();
+  const partieVierge = Object.keys(etat.utilisees).length === 0 &&
+    !etat.scores.enfants && !etat.scores.adultes;
+  if (partieVierge && !bruitometre.actif) {
+    setTimeout(() => {
+      if (ecranActuel === "mur" && !carteEnCours && !bruitometre.actif) toggleBruitometre();
+    }, 800);
+  }
+}
+
 function toggleBruitometre() {
   if (bruitometre.actif) { fermerBruitometre(); return; }
   bruitometre.actif = true;
@@ -1942,6 +1957,12 @@ function resetSansConfirmation() {
   rafraichirMur();
   rafraichirBandeau();
   montrerEcran("mur");
+  // Nouvelle partie = nouveau bruit-o-mètre pour décider qui commence
+  if (!bruitometre.actif) {
+    setTimeout(() => {
+      if (ecranActuel === "mur" && !carteEnCours && !bruitometre.actif) toggleBruitometre();
+    }, 800);
+  }
 }
 
 /* ---------------------------------------------------------------- Musique d'ambiance arcade 🕹 */
@@ -2082,6 +2103,4 @@ if (Object.keys(etat.utilisees).length > 0 || etat.scores.enfants || etat.scores
 document.addEventListener("click", () => { ctx(); majAmbiance(); }, { once: true });
 
 // Sur l'écran titre, un clic démarre aussi le jeu
-$("ecran-titre").addEventListener("click", () => {
-  if (ecranActuel === "titre") { montrerEcran("mur"); sons.jingle(); }
-});
+$("ecran-titre").addEventListener("click", demarrerVeillee);
