@@ -1204,7 +1204,7 @@ function ctxSiPossible() {
 
 /* ------- Modification des cartes depuis la télécommande (onglet Cartes) */
 
-const CLE_CARTES = "pve-cartes-v1";     // deck actif (complet), survit au rechargement
+const CLE_CARTES = "pve-cartes-v2";     // { base, deck } : le deck actif + la version de cartes.js qui lui a servi de base
 const CLE_JEUX = "pve-jeux-v1";         // jeux nommés : { nom: { date, cartes } }
 const CLE_JEU_ACTIF = "pve-jeu-actif";
 const CHAMPS_EDITABLES = ["texte", "consigne", "reponse", "indice", "secret", "musique", "musique2", "youtube", "youtube2", "video", "propositions"];
@@ -1217,21 +1217,50 @@ const clone = (o) => JSON.parse(JSON.stringify(o));
 function chargerModifsCartes() {
   CARTES_ORIGINALES = clone(CONFIG.cartes);
   jeuActif = localStorage.getItem(CLE_JEU_ACTIF) || null;
+  // Les anciens formats stockaient le deck sans sa base : impossible de savoir
+  // ce qui était une modification. On repart du cartes.js à jour (les jeux
+  // nommés, eux, sont conservés).
+  try { localStorage.removeItem("pve-cartes-v1"); } catch (e) {}
   let stocke = null;
   try { stocke = JSON.parse(localStorage.getItem(CLE_CARTES) || "null"); } catch (e) {}
-  if (!stocke) return;
-  const cles = Object.keys(stocke);
-  if (cles.length && stocke[cles[0]] && typeof stocke[cles[0]].type === "string") {
-    CONFIG.cartes = stocke; // deck complet
-  } else {
-    // Ancien format (différences par carte) : on migre
-    for (const n in stocke) appliquerModifCarte(n, {}, stocke[n]);
-    sauverDeck();
+  if (!stocke || !stocke.deck || !stocke.base) return;
+  // Fusion : les modifications de l'utilisateur (deck ≠ base) sont conservées,
+  // tout le reste vient du cartes.js à jour — les nouveautés arrivent donc
+  // automatiquement sans écraser les personnalisations.
+  CONFIG.cartes = fusionnerDecks(stocke.base, stocke.deck, CARTES_ORIGINALES);
+  sauverDeck();
+}
+
+function fusionnerDecks(base, deck, nouvelleBase) {
+  const resultat = clone(nouvelleBase);
+  const differe = (a, b) => JSON.stringify(a === undefined ? null : a) !== JSON.stringify(b === undefined ? null : b);
+  for (const n in deck) {
+    if (!resultat[n]) { resultat[n] = clone(deck[n]); continue; }
+    const ancienne = base[n] || {};
+    for (const champ of CHAMPS_CARTE) {
+      if (differe(deck[n][champ], ancienne[champ])) {
+        if (deck[n][champ] === undefined) delete resultat[n][champ];
+        else resultat[n][champ] = clone(deck[n][champ]);
+      }
+    }
+    for (const cible of ["enfants", "adultes", "commun"]) {
+      const vDeck = deck[n][cible] || {}, vBase = ancienne[cible] || {};
+      for (const champ of CHAMPS_EDITABLES) {
+        if (differe(vDeck[champ], vBase[champ])) {
+          if (!resultat[n][cible]) resultat[n][cible] = {};
+          if (vDeck[champ] === undefined) delete resultat[n][cible][champ];
+          else resultat[n][cible][champ] = clone(vDeck[champ]);
+        }
+      }
+    }
   }
+  return resultat;
 }
 
 function sauverDeck() {
-  try { localStorage.setItem(CLE_CARTES, JSON.stringify(CONFIG.cartes)); } catch (e) {}
+  try {
+    localStorage.setItem(CLE_CARTES, JSON.stringify({ base: CARTES_ORIGINALES, deck: CONFIG.cartes }));
+  } catch (e) {}
 }
 
 function appliquerModifCarte(n, meta, variantes) {
