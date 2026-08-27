@@ -1,0 +1,34 @@
+{
+  "hosting": {
+    "site": "les-lilous-veillee",
+    "public": ".",
+    "ignore": [
+      "**/.*",
+      ".git/**",
+      "**/.git/**",
+      "**/node_modules/**",
+      "firebase.json",
+      "*.md"
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(html|js)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "no-cache, max-age=0"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(png|jpg|jpeg|webp|svg|mp3|mp4)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=604800"
+          }
+        ]
+      }
+    ]
+  }
+}

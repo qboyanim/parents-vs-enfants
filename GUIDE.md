@@ -316,3 +316,23 @@ et la réponse fonctionnent quand même.
   que la page se recharge, scores et cartes retournées sont conservés.
 - « ♻ Nouvelle partie » (dans la barre de régie) remet tout à zéro.
 - Les jingles sonores sont générés par l'application — pense à monter le son !
+
+## 🚀 Mettre le jeu à jour en ligne
+
+Le jeu est hébergé à deux endroits, avec le même contenu :
+
+- **Firebase** (recommandé) : https://les-lilous-veillee.web.app
+  → télécommande : https://les-lilous-veillee.web.app/telecommande.html
+- **GitHub Pages** (secours) : https://qboyanim.github.io/parents-vs-enfants/
+
+Sur Firebase, les pages ne sont **jamais mises en cache** : une mise à jour est
+visible immédiatement, sans Ctrl+F5.
+
+Pour republier après avoir modifié les fichiers, depuis le dossier du jeu :
+
+```
+firebase deploy --only hosting:les-lilous-veillee
+```
+
+⚠️ Toujours préciser `--only hosting:les-lilous-veillee` : ça garantit que le
+site des cartes (les-lilous-cartes.web.app) n'est jamais touché.
