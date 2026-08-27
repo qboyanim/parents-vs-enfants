@@ -358,6 +358,26 @@ Le jour de la veillée, tu lances le jeu sur l'ordinateur : il récupère tout
 seul les questions du cloud. Si tu modifies quelque chose pendant la soirée,
 l'écran se met à jour **en direct**.
 
+### ⬆ Importer / ⬇ télécharger tes questions
+
+En bas de l'onglet 🗂 Cartes :
+- **⬇ Télécharger (cartes.js)** : récupère toutes tes questions dans un
+  fichier, à garder comme sauvegarde de secours.
+- **⬆ Importer un cartes.js** : recharge un fichier récupéré ailleurs (une
+  ancienne adresse du jeu, un autre ordinateur, une sauvegarde). Les deux
+  formats sont acceptés : le fichier téléchargé par l'appli, ou un cartes.js
+  écrit à la main. L'import remplace les questions actuelles (une
+  confirmation te le demande) et part aussitôt dans le cloud.
+
+### 📡 Le menu de l'écran
+
+Touche la pastille **📡** en haut pour :
+- **🔗 Ouvrir l'écran du jeu** dans un nouvel onglet ;
+- **📋 Copier le lien de l'écran** (pratique pour l'envoyer à l'ordinateur
+  du centre) ;
+- **🔄 Changer d'écran connecté** : saisir le code d'un autre écran, par
+  exemple si tu changes d'ordinateur en cours de route.
+
 ### 📌 Figer une version
 
 La configuration en cours est unique et toujours à jour. Si tu veux garder une

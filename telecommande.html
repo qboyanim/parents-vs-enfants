@@ -132,6 +132,16 @@ button:disabled { opacity: .35; }
 #bas button { flex: 1; font-size: 13px; padding: 10px 6px; }
 #etat-connexion { text-align: center; font-size: 12px; color: rgba(255,255,255,.5); }
 
+/* --- Menu de l'écran --- */
+#menu-ecran { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 20px; }
+#menu-ecran .fond-menu { position: absolute; inset: 0; background: rgba(0,0,0,.75); }
+#menu-ecran .carte-menu {
+  position: relative; width: 100%; max-width: 340px;
+  background: #1a1030; border: 2px solid #5a1bd6; border-radius: 16px;
+  padding: 16px; display: flex; flex-direction: column; gap: 10px;
+}
+#menu-ecran .titre-menu { font-weight: 900; font-size: 15px; color: #ffd24a; text-align: center; margin-bottom: 4px; }
+
 /* --- Onglet Sons --- */
 #table-sons { display: none; flex-direction: column; gap: 12px; }
 #table-sons.actif { display: flex; }
@@ -310,7 +320,11 @@ button:disabled { opacity: .35; }
     <div id="liste-jeux" style="display:flex;flex-direction:column;gap:6px"></div>
   </div>
 
-  <button class="bleu" id="btn-exporter" style="font-size:14px">⬇ Télécharger la sauvegarde (cartes.js)</button>
+  <div style="display:flex;gap:8px">
+    <button class="bleu" id="btn-exporter" style="flex:1;font-size:13px">⬇ Télécharger (cartes.js)</button>
+    <button class="violet" id="btn-importer" style="flex:1;font-size:13px">⬆ Importer un cartes.js</button>
+  </div>
+  <input type="file" id="fichier-cartes" accept=".js,.json,text/javascript,application/json" style="display:none">
   <button id="btn-retablir" style="font-size:13px">↩ Rétablir les cartes d'origine</button>
 </div>
 
@@ -392,11 +406,12 @@ function connecter() {
 setInterval(() => { if (connecte) envoyer("ping"); }, 25000);
 
 function premiereConnexion() {
-  if (connecte) return;
+  const premiere = !connecte;
   connecte = true;
   majBandeau();
   clearTimeout(timerEcranIntrouvable);
-  $("connexion").style.display = "none";
+  $("connexion").style.display = "none";   // toujours, même en changeant d'écran
+  if (!premiere) { $("etat-connexion").textContent = "📡 Connecté à l'écran (" + code + ")"; return; }
   $("onglets").classList.add("actif");
   if (!$("table-sons").classList.contains("actif") && !$("parametres").classList.contains("actif")) $("pilotage").classList.add("actif");
   $("etat-connexion").textContent = "📡 Connecté à l'écran (" + code + ")";
@@ -1216,6 +1231,8 @@ function notifier(txt) {
 }
 
 /* Export : télécharge un cartes.js prêt à remplacer celui du site */
+$("btn-importer").addEventListener("click", () => $("fichier-cartes").click());
+
 $("btn-exporter").addEventListener("click", () => {
   if (!catalogue) { notifier("⏳ Cartes pas encore reçues"); return; }
   const contenu = "/* Cartes exportées depuis la télécommande le " + new Date().toLocaleString("fr-FR") + "\n" +
@@ -1255,6 +1272,53 @@ $("btn-retablir").addEventListener("click", () => {
   }
 });
 
+
+/* ------------------------------------------------ Importer un cartes.js */
+
+// Accepte aussi bien un fichier exporté (JSON) qu'un cartes.js écrit à la main
+function lireFichierCartes(texte) {
+  const debut = texte.indexOf("{");
+  const fin = texte.lastIndexOf("}");
+  if (debut < 0 || fin < 0) throw new Error("Ce fichier ne ressemble pas à un cartes.js");
+  const corps = texte.slice(debut, fin + 1);
+  try {
+    return JSON.parse(corps);                       // fichier exporté par l'appli
+  } catch (e) {
+    // cartes.js écrit à la main : commentaires, clés non entourées de guillemets…
+    return new Function("return (" + corps + ");")();
+  }
+}
+
+$("fichier-cartes").addEventListener("change", async () => {
+  const f = $("fichier-cartes").files[0];
+  if (!f) return;
+  try {
+    const texte = await f.text();
+    const cfg = lireFichierCartes(texte);
+    const cartes = cfg.cartes || cfg;
+    const nb = Object.keys(cartes).length;
+    if (!nb) throw new Error("Aucune carte trouvée dans le fichier");
+    if (!confirm("Importer " + nb + " cartes depuis « " + f.name + " » ?\n\nCela remplace les questions actuelles.")) {
+      $("fichier-cartes").value = "";
+      return;
+    }
+    catalogue = catalogue || {};
+    catalogue.cartes = cartes;
+    if (Array.isArray(cfg.defisSurprise) && cfg.defisSurprise.length) {
+      catalogue.defisSurprise = cfg.defisSurprise;
+    }
+    defisBrouillon = null;
+    cloudPret = true;                                // le fichier importé fait foi
+    enregistrerAuto("import");
+    rendreCartes();
+    indicateur("fait", "✔ " + nb + " cartes importées");
+    notifier("✔ " + nb + " cartes importées");
+  } catch (e) {
+    alert("Import impossible : " + ((e && e.message) || e));
+  }
+  $("fichier-cartes").value = "";
+});
+
 /* ------------------------------------------------ Boutons fixes */
 
 document.querySelectorAll("[data-cmd]").forEach(b => {
@@ -1285,10 +1349,46 @@ $("btn-nouvelle").addEventListener("click", () => {
 });
 
 $("chip-cloud").addEventListener("click", demanderConnexionCloud);
-$("chip-ecran").addEventListener("click", () => {
-  if (connecte) { notifier("Écran déjà connecté"); return; }
-  $("connexion").style.display = "flex";
-});
+$("chip-ecran").addEventListener("click", ouvrirMenuEcran);
+
+function ouvrirMenuEcran() {
+  const lien = location.href.replace(/telecommande.html.*$/, "index.html");
+  const menu = document.createElement("div");
+  menu.id = "menu-ecran";
+  menu.innerHTML = "<div class=\"fond-menu\"></div>";
+  const carte = document.createElement("div");
+  carte.className = "carte-menu";
+  const titre = document.createElement("div");
+  titre.className = "titre-menu";
+  titre.textContent = connecte ? "📡 Écran connecté (" + code + ")" : "📡 Aucun écran connecté";
+  carte.appendChild(titre);
+
+  const fermer = () => menu.remove();
+
+  carte.appendChild(bouton("🔗 Ouvrir l'écran du jeu", "violet", () => {
+    window.open(lien, "_blank");
+    fermer();
+  }, "width:100%"));
+
+  carte.appendChild(bouton("📋 Copier le lien de l'écran", "bleu", async () => {
+    try { await navigator.clipboard.writeText(lien); notifier("📋 Lien copié"); }
+    catch (e) { prompt("Copie ce lien :", lien); }
+    fermer();
+  }, "width:100%"));
+
+  carte.appendChild(bouton(connecte ? "🔄 Changer d'écran connecté" : "📡 Connecter un écran", "or", () => {
+    fermer();
+    $("champ-code").value = "";
+    $("statut").textContent = "Entre le code affiché sur le nouvel écran.";
+    $("connexion").style.display = "flex";
+    $("champ-code").focus();
+  }, "width:100%"));
+
+  carte.appendChild(bouton("Annuler", "", fermer, "width:100%;font-size:13px;padding:10px"));
+  menu.appendChild(carte);
+  menu.querySelector(".fond-menu").addEventListener("click", fermer);
+  document.body.appendChild(menu);
+}
 
 // Le cloud se réveille : on charge les cartes, même sans le grand écran
 function surCloudPret() {
