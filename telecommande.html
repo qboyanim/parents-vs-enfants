@@ -1277,9 +1277,17 @@ $("btn-retablir").addEventListener("click", () => {
 
 // Accepte aussi bien un fichier exporté (JSON) qu'un cartes.js écrit à la main
 function lireFichierCartes(texte) {
-  const debut = texte.indexOf("{");
+  // L'en-tête commenté du fichier contient lui aussi des accolades :
+  // on démarre après la vraie déclaration « const CONFIG = ».
+  let depart = 0;
+  const marque = texte.lastIndexOf("const CONFIG");
+  if (marque >= 0) {
+    const egal = texte.indexOf("=", marque);
+    if (egal >= 0) depart = egal + 1;
+  }
+  const debut = texte.indexOf("{", depart);
   const fin = texte.lastIndexOf("}");
-  if (debut < 0 || fin < 0) throw new Error("Ce fichier ne ressemble pas à un cartes.js");
+  if (debut < 0 || fin < 0 || fin < debut) throw new Error("Ce fichier ne ressemble pas à un cartes.js");
   const corps = texte.slice(debut, fin + 1);
   try {
     return JSON.parse(corps);                       // fichier exporté par l'appli
