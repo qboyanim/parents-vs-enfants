@@ -338,35 +338,34 @@ firebase deploy --only hosting:les-lilous-veillee
 ⚠️ Toujours préciser `--only hosting:les-lilous-veillee` : ça garantit que le
 site des cartes (les-lilous-cartes.web.app) n'est jamais touché.
 
-## ☁️ Sauvegarde dans le cloud
+## ☁️ Où sont enregistrées tes questions
 
-Par défaut, tes jeux enregistrés ne vivent que dans le navigateur de
-l'ordinateur du jeu. Le cloud les met à l'abri et les rend disponibles sur
-n'importe quel ordinateur.
+**Tout est dans le cloud, enregistré automatiquement.** Tu n'as aucun bouton
+« Enregistrer » à penser : dès que tu modifies un champ sur la télécommande,
+un indicateur « ✔ enregistré » apparaît en haut à droite et c'est parti dans
+Firestore.
 
-**Se connecter (une seule fois par ordinateur)**
-Onglet 🗂 Cartes du téléphone → section « ☁️ Sauvegarde dans le cloud » →
-« Se connecter au cloud ». Un écran apparaît **sur le grand écran** : saisis
-l'adresse et le mot de passe de ton compte Les Lilous (le même que le site des
-cartes). La connexion est ensuite mémorisée, même après extinction du PC.
-À faire avant l'arrivée du public, forcément.
+**Tu peux préparer tes questions sans allumer le jeu.** Ouvre simplement la
+télécommande sur ton téléphone ou ton PC :
+https://les-lilous-veillee.web.app/telecommande.html
 
-**Envoyer un jeu** : donne-lui un nom, touche « ☁️ Envoyer ». Partent avec lui
-les cartes, les défis surprise **et les gros fichiers** (musiques, vidéos,
-images) que tu as importés avec 📂 PC. Une barre de progression s'affiche en
-bas à droite du grand écran pendant le transfert.
+En haut, deux pastilles indiquent l'état :
+- **☁️ ton compte** : le cloud. Touche-la pour te connecter (adresse + mot de
+  passe de ton compte Les Lilous). Une seule fois par appareil.
+- **📡 écran** : le grand écran. Il n'est nécessaire que pour *jouer*.
 
-**Récupérer un jeu** : « ▶ Charger » à côté de son nom. Les fichiers manquants
-sont retéléchargés automatiquement dans le navigateur. Le nombre de fichiers
-attachés est indiqué par 📎.
+Le jour de la veillée, tu lances le jeu sur l'ordinateur : il récupère tout
+seul les questions du cloud. Si tu modifies quelque chose pendant la soirée,
+l'écran se met à jour **en direct**.
 
-**Sécurité** : les données sont dans le Firestore de ton projet, protégées par
-les mêmes règles que le site des cartes — sans ton compte, personne ne peut
-ni lire ni écrire (vérifié : un accès anonyme reçoit un refus). La
-configuration Firebase visible dans les fichiers n'est pas un secret, ce sont
-les règles qui protègent.
+### 📌 Figer une version
 
-**Limites** : les gros fichiers sont découpés en morceaux de 700 Ko dans
-Firestore (Cloud Storage exige un plan payant depuis février 2026). Pour
-quelques fichiers par veillée c'est parfait ; évite d'y mettre une
-discothèque entière.
+La configuration en cours est unique et toujours à jour. Si tu veux garder une
+version de côté (« Maternelles », « Ados »…), donne-lui un nom et touche
+« 📌 Figer ». Tu la remets quand tu veux avec « ▶ Utiliser ».
+
+### Sécurité
+
+Les données sont dans le Firestore de ton projet, protégées par les mêmes
+règles que le site des cartes : sans ton compte, personne ne peut ni lire ni
+écrire (vérifié : un accès anonyme reçoit un refus).

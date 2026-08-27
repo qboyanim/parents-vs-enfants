@@ -47,6 +47,27 @@ button:disabled { opacity: .35; }
 }
 #statut { text-align: center; font-size: 14px; color: rgba(255,255,255,.7); min-height: 20px; }
 
+/* --- Bandeau d'état --- */
+#bandeau-etat { display: flex; gap: 8px; margin-bottom: 12px; }
+.chip {
+  flex: 1; font-size: 12px; padding: 9px 6px; border-radius: 20px;
+  background: #22183a; color: rgba(255,255,255,.75); font-weight: 700;
+}
+.chip.ok { background: #14532d; color: #9df5b8; }
+.chip.ko { background: #4a1520; color: #ffb3b3; }
+
+/* Indicateur d'enregistrement automatique */
+#auto-save {
+  position: fixed; top: 8px; right: 8px; z-index: 60;
+  font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 14px;
+  background: rgba(0,0,0,.8); border: 1px solid rgba(255,255,255,.2);
+  opacity: 0; transition: opacity .3s;
+}
+#auto-save.visible { opacity: 1; }
+#auto-save.encours { color: #ffd24a; border-color: #ffd24a; }
+#auto-save.fait { color: #7CFF9B; border-color: #7CFF9B; }
+#auto-save.rate { color: #ff8080; border-color: #ff8080; }
+
 /* --- Onglets --- */
 #onglets { display: none; gap: 8px; margin-bottom: 12px; }
 #onglets.actif { display: flex; }
@@ -163,8 +184,14 @@ button:disabled { opacity: .35; }
 </head>
 <body>
 
+<div id="auto-save"></div>
+
 <h1>🎛 <span class="e">ENFANTS</span> VS <span class="p">PARENTS</span></h1>
 <div class="sous">Télécommande du présentateur</div>
+<div id="bandeau-etat">
+  <button id="chip-cloud" class="chip">☁️ …</button>
+  <button id="chip-ecran" class="chip">📡 …</button>
+</div>
 
 <!-- CONNEXION -->
 <div id="connexion">
@@ -287,6 +314,8 @@ button:disabled { opacity: .35; }
   <button id="btn-retablir" style="font-size:13px">↩ Rétablir les cartes d'origine</button>
 </div>
 
+<script src="firebase-config.js"></script>
+<script type="module" src="nuage.js?v=2"></script>
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <script>
 "use strict";
@@ -337,7 +366,19 @@ function connecter() {
   client.on("message", (topic, payload) => {
     let d; try { d = JSON.parse(payload.toString()); } catch (e) { return; }
     if (topic.endsWith("/etat")) { etat = d; premiereConnexion(); rendre(); }
-    if (topic.endsWith("/cartes")) { catalogue = d; if ($("parametres").classList.contains("actif")) rendreCartes(); }
+    if (topic.endsWith("/cartes")) {
+      // Le cloud a le dernier mot : on ne prend les cartes de l'écran que si
+      // le cloud n'a rien (première fois) ou n'est pas connecté.
+      if (!cloudPret) {
+        catalogue = d;
+        if ($("parametres").classList.contains("actif")) rendreCartes();
+        if (cloudConnecte()) chargerCatalogueCloud().then(() => { if ($("parametres").classList.contains("actif")) rendreCartes(); });
+      } else if (catalogue) {
+        // on garde nos cartes, mais on récupère les infos de jeu de l'écran
+        catalogue.equipes = d.equipes || catalogue.equipes;
+        catalogue.jeux = d.jeux || catalogue.jeux;
+      }
+    }
   });
   client.on("close", () => {
     if (connecte) $("etat-connexion").textContent = "⏳ Reconnexion…";
@@ -353,10 +394,11 @@ setInterval(() => { if (connecte) envoyer("ping"); }, 25000);
 function premiereConnexion() {
   if (connecte) return;
   connecte = true;
+  majBandeau();
   clearTimeout(timerEcranIntrouvable);
   $("connexion").style.display = "none";
   $("onglets").classList.add("actif");
-  $("pilotage").classList.add("actif");
+  if (!$("table-sons").classList.contains("actif") && !$("parametres").classList.contains("actif")) $("pilotage").classList.add("actif");
   $("etat-connexion").textContent = "📡 Connecté à l'écran (" + code + ")";
 }
 
@@ -806,10 +848,8 @@ function rendreCartes() {
       });
     }
 
-    const btn = document.createElement("button");
-    btn.className = "enregistrer";
-    btn.textContent = "💾 Enregistrer la carte " + n;
-    btn.addEventListener("click", () => {
+    // Enregistrement automatique : chaque modification part toute seule
+    const appliquer = () => {
       const valeurs = {};
       ed.querySelectorAll("[data-cle]").forEach(ch => { valeurs[ch.dataset.cle] = ch.value.trim(); });
       if (inputsProps) {
@@ -823,10 +863,15 @@ function rendreCartes() {
       if (selEffet) meta.effet = selEffet.value;
       if (champValeur) meta.valeur = champValeur.value === "" ? "" : +champValeur.value;
       if (selDcc) meta.dcc = selDcc.value === "1";
-      envoyer("majCarte", { n, carte: meta, variantes: { [filtreActif]: valeurs } });
-      notifier("✔ Carte " + n + " enregistrée");
-    });
-    ed.appendChild(btn);
+      appliquerLocalement(n, meta, { [filtreActif]: valeurs });
+      enregistrerAuto("carte " + n);
+    };
+    ed.addEventListener("input", appliquer);
+    ed.addEventListener("change", appliquer);
+    const info = document.createElement("div");
+    info.style.cssText = "font-size:11px;color:#9df5b8;margin-top:4px";
+    info.textContent = "✔ Enregistré automatiquement";
+    ed.appendChild(info);
     ligne.appendChild(ed);
     liste.appendChild(ligne);
   }
@@ -856,7 +901,11 @@ function rendreDefis(force) {
     champ.value = texte;
     champ.rows = 2;
     champ.style.cssText = "flex:1;border-radius:8px;border:1px solid #3a3a55;background:rgba(0,0,0,.45);color:#fff;padding:8px;font-family:inherit;font-size:13px;outline:none;resize:vertical;user-select:text;-webkit-user-select:text";
-    champ.addEventListener("input", () => { defisBrouillon[i] = champ.value; });
+    champ.addEventListener("input", () => {
+      defisBrouillon[i] = champ.value;
+      catalogue.defisSurprise = defisBrouillon.map(x => x.trim()).filter(Boolean);
+      enregistrerAuto("defis");
+    });
     const suppr = document.createElement("button");
     suppr.textContent = "🗑";
     suppr.className = "rouge";
@@ -890,86 +939,219 @@ $("btn-sauver-defis").addEventListener("click", () => {
 });
 
 
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LE CLOUD EST LA SOURCE DE VÉRITÉ
+   La télécommande charge les cartes depuis Firestore et y écrit à chaque
+   modification. Le grand écran n'a pas besoin d'être allumé pour configurer.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+let cloudPret = false;
+let sauvegardeEnAttente = null;
+let derniereSauvegarde = 0;
+
+function nuage() { return window.NUAGE_VEILLEE || null; }
+function cloudConnecte() { const n = nuage(); return !!(n && n.utilisateur); }
+
+function majBandeau() {
+  const n = nuage();
+  const cc = $("chip-cloud"), ce = $("chip-ecran");
+  if (!n || !n.disponible) { cc.textContent = "☁️ indisponible"; cc.className = "chip ko"; }
+  else if (n.utilisateur) { cc.textContent = "☁️ " + n.utilisateur.split("@")[0]; cc.className = "chip ok"; }
+  else { cc.textContent = "☁️ se connecter"; cc.className = "chip ko"; }
+  ce.textContent = connecte ? "📡 écran connecté" : "📡 écran absent";
+  ce.className = "chip " + (connecte ? "ok" : "");
+}
+
+function indicateur(etat, texte) {
+  const el = $("auto-save");
+  el.className = "visible " + etat;
+  el.textContent = texte;
+  if (etat !== "encours") setTimeout(() => el.classList.remove("visible"), 1800);
+}
+
+/* ------- Enregistrement automatique (rien à valider) ------- */
+
+function enregistrerAuto(raison) {
+  if (!catalogue) return;
+  // On applique tout de suite à l'écran s'il est là
+  if (connecte) envoyer("remplacerConfig", { cartes: catalogue.cartes, defis: catalogue.defisSurprise || [] });
+  if (!cloudConnecte()) { indicateur("rate", "⚠ hors cloud — connecte-toi"); return; }
+  indicateur("encours", "💾 enregistrement…");
+  clearTimeout(sauvegardeEnAttente);
+  sauvegardeEnAttente = setTimeout(async () => {
+    try {
+      await nuage().enregistrerConfig(catalogue.cartes, catalogue.defisSurprise || [], catalogue.jeuActif);
+      derniereSauvegarde = Date.now();
+      indicateur("fait", "✔ enregistré");
+    } catch (e) {
+      indicateur("rate", "⚠ échec : " + ((e && e.message) || e));
+    }
+  }, 600);
+}
+
+/* ------- Chargement initial des cartes ------- */
+
+async function chargerCatalogueCloud() {
+  if (!cloudConnecte()) return false;
+  try {
+    const cfg = await nuage().chargerConfig();
+    if (cfg && Object.keys(cfg.cartes).length) {
+      catalogue = Object.assign(catalogue || {}, {
+        cartes: cfg.cartes,
+        defisSurprise: cfg.defis,
+        equipes: (catalogue && catalogue.equipes) || { enfants: { nom: "ENFANTS" }, adultes: { nom: "PARENTS" } },
+        jeux: (catalogue && catalogue.jeux) || [],
+        jeuActif: cfg.nom || (catalogue && catalogue.jeuActif) || null,
+      });
+      cloudPret = true;
+      defisBrouillon = null;
+      if ($("parametres").classList.contains("actif")) rendreCartes();
+      return true;
+    }
+    // Rien dans le cloud : on y dépose ce que l'écran nous a donné
+    if (catalogue && catalogue.cartes) {
+      await nuage().enregistrerConfig(catalogue.cartes, catalogue.defisSurprise || [], null);
+      cloudPret = true;
+      indicateur("fait", "✔ cartes envoyées au cloud");
+    }
+  } catch (e) {
+    indicateur("rate", "⚠ cloud : " + ((e && e.message) || e));
+  }
+  return false;
+}
+
+/* ------- Connexion au compte, depuis le téléphone ------- */
+
+async function demanderConnexionCloud() {
+  const n = nuage();
+  if (!n || !n.disponible) { notifier("Cloud indisponible"); return; }
+  if (n.utilisateur) {
+    if (confirm("Se déconnecter du cloud (" + n.utilisateur + ") ?")) {
+      await n.deconnexion();
+      majBandeau();
+    }
+    return;
+  }
+  const email = prompt("Adresse e-mail de ton compte Les Lilous :", localStorage.getItem("pve-email") || "");
+  if (!email) return;
+  const mdp = prompt("Mot de passe :");
+  if (!mdp) return;
+  try {
+    indicateur("encours", "☁️ connexion…");
+    await n.connexion(email, mdp);
+    localStorage.setItem("pve-email", email.trim());
+    indicateur("fait", "✔ connecté");
+    majBandeau();
+    await chargerCatalogueCloud();
+    await rafraichirJeuxCloud();
+  } catch (e) {
+    indicateur("rate", "❌ " + ((e && e.code) || "").replace("auth/", ""));
+    alert("Connexion impossible : " + ((e && e.message) || e));
+  }
+}
+
+/* ------- Les jeux nommés, dans le cloud ------- */
+
+let jeuxCloud = [];
+
+async function rafraichirJeuxCloud() {
+  if (!cloudConnecte()) { jeuxCloud = []; return; }
+  try { jeuxCloud = await nuage().listerJeux(); } catch (e) { jeuxCloud = []; }
+  if ($("parametres").classList.contains("actif")) rendreCloud();
+}
+
 /* ------------------------------------------------ Sauvegarde dans le cloud */
 
+
+// Applique une modification de carte dans le catalogue local de la télécommande
+function appliquerLocalement(n, meta, variantes) {
+  if (!catalogue || !catalogue.cartes || !catalogue.cartes[n]) return;
+  const carte = catalogue.cartes[n];
+  for (const champ of ["type", "points", "perte", "timer", "effet", "valeur", "dcc"]) {
+    if (!(champ in meta)) continue;
+    const v = meta[champ];
+    if (v === "" || v == null || (typeof v === "number" && isNaN(v))) {
+      if (champ !== "type") delete carte[champ];
+    } else carte[champ] = v;
+  }
+  for (const cible in variantes) {
+    if (!carte[cible]) carte[cible] = {};
+    for (const champ in variantes[cible]) {
+      const v = variantes[cible][champ];
+      const vide = v == null || v === "" || (Array.isArray(v) && !v.filter(Boolean).length);
+      if (vide) delete carte[cible][champ];
+      else carte[cible][champ] = v;
+    }
+  }
+}
+
 function rendreCloud() {
-  if (!catalogue) return;
-  const c = catalogue.cloud || {};
-  const etat = $("cloud-etat");
-  const actions = $("cloud-actions");
-  const liste = $("cloud-liste");
-  actions.innerHTML = "";
-  liste.innerHTML = "";
-
-  if (!c.disponible) {
-    etat.textContent = "Cloud indisponible (Firebase non configuré sur cet écran).";
+  const etat = $("cloud-etat"), actions = $("cloud-actions"), liste = $("cloud-liste");
+  actions.innerHTML = ""; liste.innerHTML = "";
+  const n = nuage();
+  if (!n || !n.disponible) { etat.textContent = "Cloud indisponible."; return; }
+  if (!n.utilisateur) {
+    etat.innerHTML = "<b>Non connecté.</b> Connecte-toi pour que tes questions soient enregistrées automatiquement et retrouvées partout.";
+    actions.appendChild(bouton("☁️ Se connecter", "bleu", demanderConnexionCloud, "flex:1"));
     return;
   }
-
-  if (!c.utilisateur) {
-    etat.innerHTML = "Non connecté. Tes jeux ne sont enregistrés que sur cet ordinateur.";
-    const b = bouton("☁️ Se connecter au cloud", "bleu", () => {
-      envoyer("cloudConnexion");
-      notifier("👉 Termine la connexion sur le grand écran");
-    }, "flex:1");
-    actions.appendChild(b);
-    return;
-  }
-
-  etat.innerHTML = "Connecté : <b>" + echap(c.utilisateur) + "</b>";
+  const quand = derniereSauvegarde ? new Date(derniereSauvegarde).toLocaleTimeString("fr-FR") : "—";
+  etat.innerHTML = "Connecté : <b>" + echap(n.utilisateur) + "</b><br>" +
+    "<span style=\"color:#9df5b8\">✔ Enregistrement automatique</span> · dernier : " + quand;
 
   const champ = document.createElement("input");
-  champ.placeholder = "Nom du jeu à envoyer";
+  champ.placeholder = "Nom pour figer cette version";
   champ.maxLength = 60;
   champ.style.cssText = "flex:1;border-radius:10px;border:1px solid #3a3a55;background:rgba(0,0,0,.45);color:#fff;padding:10px;font-family:inherit;font-size:14px;outline:none;user-select:text;-webkit-user-select:text";
-  champ.value = catalogue.jeuActif || "";
   actions.appendChild(champ);
-  const bEnvoi = bouton("☁️ Envoyer", "vert", () => {
+  actions.appendChild(bouton("📌 Figer", "vert", async () => {
     const nom = champ.value.trim();
-    if (!nom) { notifier("⚠ Donne un nom au jeu"); return; }
-    envoyer("cloudSauver", { nom });
-    notifier("☁️ Envoi en cours…");
-    setTimeout(() => envoyer("cloudLister"), 4000);
-  }, "font-size:13px;padding:10px");
-  actions.appendChild(bEnvoi);
+    if (!nom) { notifier("⚠ Donne un nom"); return; }
+    try {
+      indicateur("encours", "📌 sauvegarde…");
+      await nuage().envoyerJeu(nom, catalogue.cartes, catalogue.defisSurprise || [], []);
+      indicateur("fait", "✔ version « " + nom + " » figée");
+      champ.value = "";
+      await rafraichirJeuxCloud();
+    } catch (e) { indicateur("rate", "⚠ " + ((e && e.message) || e)); }
+  }, "font-size:13px;padding:10px"));
 
-  const outils = document.createElement("div");
-  outils.style.cssText = "display:flex;gap:8px";
-  const bMaj = bouton("🔄 Rafraîchir la liste", "", () => envoyer("cloudLister"), "flex:1;font-size:12px;padding:9px");
-  const bOut = bouton("Se déconnecter", "", () => envoyer("cloudDeconnexion"), "flex:1;font-size:12px;padding:9px");
-  outils.appendChild(bMaj); outils.appendChild(bOut);
-  liste.appendChild(outils);
-
-  const jeux = c.jeux || [];
-  if (!jeux.length) {
-    const vide = document.createElement("div");
-    vide.style.cssText = "font-size:12px;color:rgba(255,255,255,.5)";
-    vide.textContent = "Aucun jeu dans le cloud. Touche « 🔄 Rafraîchir » ou envoie ton premier jeu !";
-    liste.appendChild(vide);
+  liste.appendChild(bouton("🔄 Rafraîchir", "", () => rafraichirJeuxCloud().then(rendreCloud), "width:100%;font-size:12px;padding:9px"));
+  if (!jeuxCloud.length) {
+    const v = document.createElement("div");
+    v.style.cssText = "font-size:12px;color:rgba(255,255,255,.5)";
+    v.textContent = "Aucune version figée. Tes modifications sont malgré tout enregistrées en continu.";
+    liste.appendChild(v);
     return;
   }
-
-  for (const j of jeux) {
+  for (const j of jeuxCloud) {
     const ligne = document.createElement("div");
     ligne.style.cssText = "display:flex;gap:6px;align-items:center";
     const nom = document.createElement("div");
     nom.style.cssText = "flex:1;font-size:14px;font-weight:700";
-    nom.textContent = "☁️ " + j.nom + (j.medias && j.medias.length ? "  📎" + j.medias.length : "");
-    const date = document.createElement("div");
-    date.style.cssText = "font-size:11px;color:rgba(255,255,255,.45)";
-    date.textContent = new Date(j.date).toLocaleDateString("fr-FR");
-    const bCharger = bouton("▶ Charger", "bleu", () => {
-      envoyer("cloudCharger", { nom: j.nom });
-      notifier("☁️ Récupération de « " + j.nom + " »…");
+    nom.textContent = "📌 " + j.nom;
+    const bCharger = bouton("▶ Utiliser", "bleu", async () => {
+      if (!confirm("Remplacer les questions actuelles par « " + j.nom + " » ?")) return;
+      try {
+        indicateur("encours", "☁️ chargement…");
+        const jeu = await nuage().chargerJeu(j.nom);
+        catalogue.cartes = jeu.cartes;
+        catalogue.defisSurprise = jeu.defis;
+        catalogue.jeuActif = jeu.nom;
+        defisBrouillon = null;
+        enregistrerAuto("chargement");
+        rendreCartes();
+        indicateur("fait", "✔ « " + j.nom + " » chargé");
+      } catch (e) { indicateur("rate", "⚠ " + ((e && e.message) || e)); }
     }, "font-size:12px;padding:8px 10px");
-    const bSuppr = bouton("🗑", "rouge", () => {
-      if (confirm("Supprimer « " + j.nom + " » du cloud ?")) {
-        envoyer("cloudSupprimer", { nom: j.nom });
-        setTimeout(() => envoyer("cloudLister"), 1200);
-      }
+    const bSuppr = bouton("🗑", "rouge", async () => {
+      if (!confirm("Supprimer « " + j.nom + " » ?")) return;
+      await nuage().supprimerJeu(j.nom);
+      await rafraichirJeuxCloud();
+      rendreCloud();
     }, "font-size:12px;padding:8px 10px");
-    ligne.appendChild(nom); ligne.appendChild(date);
-    ligne.appendChild(bCharger); ligne.appendChild(bSuppr);
+    ligne.appendChild(nom); ligne.appendChild(bCharger); ligne.appendChild(bSuppr);
     liste.appendChild(ligne);
   }
 }
@@ -1101,6 +1283,29 @@ $("btn-nouvelle").addEventListener("click", () => {
     envoyer("reset");
   }
 });
+
+$("chip-cloud").addEventListener("click", demanderConnexionCloud);
+$("chip-ecran").addEventListener("click", () => {
+  if (connecte) { notifier("Écran déjà connecté"); return; }
+  $("connexion").style.display = "flex";
+});
+
+// Le cloud se réveille : on charge les cartes, même sans le grand écran
+function surCloudPret() {
+  majBandeau();
+  if (cloudConnecte()) {
+    $("onglets").classList.add("actif");
+    chargerCatalogueCloud().then(() => { rafraichirJeuxCloud(); });
+  }
+}
+// nuage.js est un module : il se charge après ce script, on l'attend.
+(function attendreNuage() {
+  const n = nuage();
+  if (!n) { setTimeout(attendreNuage, 200); return; }
+  n.surChangement = surCloudPret;
+  if (n.pret) surCloudPret();
+})();
+setInterval(majBandeau, 3000);
 
 // Connexion automatique si un code est déjà mémorisé
 if (dernierCode.length === 4) connecter();

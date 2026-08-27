@@ -17,7 +17,7 @@ import {
   setPersistence, browserLocalPersistence,
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-auth.js";
 import {
-  getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, query, where,
+  getFirestore, doc, getDoc, setDoc, deleteDoc, collection, getDocs, onSnapshot,
 } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-firestore.js";
 
 const CFG = window.FIREBASE_CONFIG || {};
@@ -119,6 +119,46 @@ function identifiant(nom) {
     .normalize("NFD")                       // les accents se détachent…
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50);  // …et disparaissent ici
 }
+
+/* ───────────────── La configuration active (source de vérité) ─────────────────
+   Un seul document contient les cartes et les défis en cours d'édition.
+   La télécommande écrit dedans à chaque modification ; l'écran le lit au
+   démarrage et suit les changements en direct. */
+
+const DOC_CONFIG = "config-active";
+
+NUAGE.chargerConfig = async () => {
+  exigerConnexion();
+  const d = await getDoc(doc(bdd, "veillee", DOC_CONFIG));
+  if (!d.exists()) return null;
+  const v = d.data();
+  const contenu = JSON.parse(v.contenu || "{}");
+  return { cartes: contenu.cartes || {}, defis: contenu.defis || [], date: v.date || 0, nom: v.nom || null };
+};
+
+NUAGE.enregistrerConfig = async (cartes, defis, nom) => {
+  exigerConnexion();
+  await setDoc(doc(bdd, "veillee", DOC_CONFIG), {
+    type: "config",
+    date: Date.now(),
+    par: NUAGE.utilisateur,
+    nom: nom || null,
+    contenu: JSON.stringify({ cartes, defis }),
+  });
+};
+
+// Suit la configuration en direct (l'écran se met à jour tout seul)
+NUAGE.ecouterConfig = (surChangement) => {
+  if (!bdd || !NUAGE.utilisateur) return () => {};
+  return onSnapshot(doc(bdd, "veillee", DOC_CONFIG), (d) => {
+    if (!d.exists()) return;
+    const v = d.data();
+    try {
+      const contenu = JSON.parse(v.contenu || "{}");
+      surChangement({ cartes: contenu.cartes || {}, defis: contenu.defis || [], date: v.date || 0 });
+    } catch (e) { console.error(e); }
+  }, (e) => console.error("Écoute config :", e));
+};
 
 /* ─────────────────────────── Gros fichiers ─────────────────────────── */
 

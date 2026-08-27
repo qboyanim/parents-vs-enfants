@@ -2043,6 +2043,7 @@ function executerCommande(d) {
     case "cloudCharger":     cloudChargerJeu(d.nom); break;
     case "cloudSupprimer":   cloudSupprimerJeu(d.nom); break;
     case "cloudLister":      rafraichirJeuxCloud(); break;
+    case "remplacerConfig":  remplacerConfig(d.cartes, d.defis, true); break;
     case "joker":      ajusterJoker(d.equipe, +d.delta || 0); break;
     case "reset":      resetSansConfirmation(); break;
   }
@@ -2963,6 +2964,42 @@ async function cloudDeconnexion() {
   annoncer("☁️ Déconnecté du cloud");
 }
 
+
+/* ------- L'écran suit la configuration du cloud ------- */
+
+// Remplace tout le contenu (envoyé par la télécommande, par MQTT ou par le cloud)
+function remplacerConfig(cartes, defis, silencieux) {
+  if (!cartes || !Object.keys(cartes).length) return;
+  CONFIG.cartes = clone(cartes);
+  if (defis && defis.length) CONFIG.defisSurprise = clone(defis);
+  sauverDeck();
+  rafraichirMur();
+  envoyerCartes();
+  if (!silencieux) annoncer("☁️ Questions mises à jour depuis la télécommande");
+}
+
+function brancherConfigCloud() {
+  const n = nuage();
+  // nuage.js est un module : il se charge APRÈS ce script, on l'attend.
+  if (!n) { setTimeout(brancherConfigCloud, 200); return; }
+  if (!n.disponible) return;
+  n.surChangement = () => {
+    if (!n.utilisateur) return;
+    // Au démarrage : on prend ce qui est dans le cloud ; s'il n'y a rien, on y dépose le nôtre
+    n.chargerConfig().then((cfg) => {
+      if (cfg && Object.keys(cfg.cartes).length) {
+        remplacerConfig(cfg.cartes, cfg.defis, true);
+        annoncer("☁️ Questions chargées depuis le cloud");
+      } else {
+        n.enregistrerConfig(CONFIG.cartes, CONFIG.defisSurprise || [], null).catch(() => {});
+      }
+      // Puis on suit les modifications en direct
+      n.ecouterConfig((c) => remplacerConfig(c.cartes, c.defis, true));
+    }).catch((e) => annoncer("⚠️ Cloud : " + ((e && e.message) || e)));
+  };
+  if (n.pret) n.surChangement();
+}
+
 /* ---------------------------------------------------------------- Démarrage */
 
 chargerModifsCartes();
@@ -2971,6 +3008,7 @@ charger();
 construireMur();
 rafraichirBandeau();
 initTelecommande();
+brancherConfigCloud();
 
 // Si une partie était en cours, aller directement au mur
 if (Object.keys(etat.utilisees).length > 0 || etat.scores.enfants || etat.scores.adultes) {
