@@ -1123,6 +1123,43 @@ html, body {
   background: transparent; padding: 1.2vh 2vw;
 }
 
+/* ====== CONNEXION AU CLOUD ====== */
+#cloud-overlay {
+  position: fixed; inset: 0;
+  display: none;
+  align-items: center; justify-content: center; flex-direction: column; gap: 2.5vh;
+  background: rgba(5, 0, 25, .95);
+  z-index: 119; text-align: center; padding: 0 10vw;
+}
+#cloud-overlay.visible { display: flex; }
+#cloud-overlay .titre-cloud { font-family: var(--font-titre); font-size: 4.5vh; color: var(--or); }
+#cloud-overlay .aide-cloud { font-size: 2.2vh; color: rgba(255,255,255,.7); max-width: 60vw; line-height: 1.5; }
+#cloud-overlay input {
+  width: 46vw; font-size: 3vh; padding: 1.4vh 1.5vw;
+  border-radius: 1.5vh; border: .3vh solid #5a1bd6;
+  background: rgba(0,0,0,.5); color: #fff; font-family: inherit; outline: none;
+  user-select: text; -webkit-user-select: text;
+}
+#cloud-overlay input:focus { border-color: var(--or); }
+#cloud-overlay .rangee-cloud { display: flex; gap: 1.5vw; }
+#cloud-overlay button {
+  font-family: var(--font-titre); font-size: 3vh;
+  padding: 1.6vh 3vw; border-radius: 2vh;
+  border: .4vh solid var(--or); background: rgba(255,210,74,.15); color: var(--or); cursor: pointer;
+}
+#cloud-overlay button:hover { background: rgba(255,210,74,.3); }
+#cloud-overlay .annuler-cloud { font-family: var(--font-texte); font-size: 2.2vh; border-color: rgba(255,255,255,.4); color: rgba(255,255,255,.7); background: transparent; padding: 1vh 2vw; }
+#cloud-message { font-size: 2.2vh; min-height: 3vh; color: #7CFF9B; }
+#cloud-message.erreur { color: #ff6b6b; }
+
+/* Bandeau de progression du cloud (visible pendant les transferts) */
+#cloud-progres {
+  position: fixed; bottom: 2vh; right: 2vw;
+  background: rgba(0,0,0,.85); border: .3vh solid var(--or); border-radius: 1.5vh;
+  padding: 1vh 1.5vw; font-size: 2vh; color: var(--or); font-weight: 700;
+  display: none; z-index: 121;
+}
+#cloud-progres.visible { display: block; }
 /* ====== MASCOTTES DÉCO ====== */
 #epreuve-mascotte {
   position: fixed; bottom: 0; left: 2.5vw;
@@ -1308,6 +1345,20 @@ html, body {
   <input type="file" id="fichier-input" style="display:none">
 </div>
 
+<!-- CONNEXION AU CLOUD -->
+<div id="cloud-overlay">
+  <div class="titre-cloud">☁️ SAUVEGARDE DANS LE CLOUD</div>
+  <div class="aide-cloud">Connecte-toi avec le même compte que le site des cartes.<br>Une seule fois par ordinateur : la connexion est ensuite mémorisée.</div>
+  <input type="email" id="cloud-email" placeholder="Adresse e-mail" autocomplete="username">
+  <input type="password" id="cloud-mdp" placeholder="Mot de passe" autocomplete="current-password">
+  <div id="cloud-message"></div>
+  <div class="rangee-cloud">
+    <button id="cloud-valider">Se connecter</button>
+    <button class="annuler-cloud" id="cloud-annuler">Annuler (Échap)</button>
+  </div>
+</div>
+
+<div id="cloud-progres"></div>
 <!-- MASCOTTE COUCOU -->
 <div id="mascotte-coucou"><img src="" alt=""></div>
 
@@ -1421,7 +1472,9 @@ html, body {
 
 <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
 <!-- Le ?v= force le navigateur à recharger les fichiers après une mise à jour -->
-<script src="cartes.js?v=17"></script>
-<script src="app.js?v=17"></script>
+<script src="firebase-config.js"></script>
+<script type="module" src="nuage.js?v=1"></script>
+<script src="cartes.js?v=18"></script>
+<script src="app.js?v=18"></script>
 </body>
 </html>

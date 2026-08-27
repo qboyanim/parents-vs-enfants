@@ -1691,6 +1691,7 @@ document.addEventListener("keydown", (e) => {
   // Aide
   if (k === "?" || e.key === "F1") { e.preventDefault(); $("aide").classList.toggle("visible"); return; }
   if ($("aide").classList.contains("visible") && e.key === "Escape") { $("aide").classList.remove("visible"); return; }
+  if ($("cloud-overlay") && $("cloud-overlay").classList.contains("visible")) { if (e.key === "Escape") fermerCloudConnexion(); return; }
 
   // Écran titre
   if (ecranActuel === "titre") {
@@ -1981,6 +1982,11 @@ function envoyerCartes() {
     scoresSecretsDernieresCartes: CONFIG.scoresSecretsDernieresCartes,
     jeux: Object.keys(jeux).map(nom => ({ nom, date: jeux[nom].date })).sort((a, b) => b.date - a.date),
     jeuActif,
+    cloud: {
+      disponible: !!(window.NUAGE_VEILLEE && window.NUAGE_VEILLEE.disponible),
+      utilisateur: (window.NUAGE_VEILLEE && window.NUAGE_VEILLEE.utilisateur) || null,
+      jeux: jeuxCloud,
+    },
   }, true);
 }
 
@@ -2031,6 +2037,12 @@ function executerCommande(d) {
     case "podium":     if (sequenceBonus.enCours) sauterBonus(); else ecranVictoire(); break;
     case "image":      basculerImage(); break;
     case "son":        jouerSonTable(d.id); break;
+    case "cloudConnexion":   ouvrirCloudConnexion(); break;
+    case "cloudDeconnexion": cloudDeconnexion(); break;
+    case "cloudSauver":      cloudSauverJeu(d.nom); break;
+    case "cloudCharger":     cloudChargerJeu(d.nom); break;
+    case "cloudSupprimer":   cloudSupprimerJeu(d.nom); break;
+    case "cloudLister":      rafraichirJeuxCloud(); break;
     case "joker":      ajusterJoker(d.equipe, +d.delta || 0); break;
     case "reset":      resetSansConfirmation(); break;
   }
@@ -2763,6 +2775,193 @@ setInterval(() => {
 document.querySelectorAll(".dcc-btn").forEach(b => {
   b.addEventListener("click", () => choisirModeDcc(b.dataset.mode));
 });
+
+
+/* ---------------------------------------------------------------- Sauvegarde dans le cloud ☁️ */
+/* Le module nuage.js (Firebase) fait le travail ; ici on branche les commandes
+   de la télécommande, l'écran de connexion et les transferts de fichiers. */
+
+function nuage() { return window.NUAGE_VEILLEE || null; }
+function nuageConnecte() { const n = nuage(); return !!(n && n.utilisateur); }
+
+function cloudProgres(texte) {
+  const el = $("cloud-progres");
+  if (!el) return;
+  if (!texte) { el.classList.remove("visible"); return; }
+  el.textContent = texte;
+  el.classList.add("visible");
+}
+
+function cloudMessage(txt, erreur) {
+  const el = $("cloud-message");
+  if (!el) return;
+  el.textContent = txt || "";
+  el.classList.toggle("erreur", !!erreur);
+}
+
+function ouvrirCloudConnexion() {
+  if (!$("cloud-overlay")) { annoncer("⚠️ Recharge la page (Ctrl+F5) pour activer le cloud"); return; }
+  const n = nuage();
+  if (!n || !n.disponible) { annoncer("⚠️ Cloud indisponible (Firebase non configuré)"); return; }
+  if (n.utilisateur) { annoncer("☁️ Déjà connecté : " + n.utilisateur); return; }
+  cloudMessage("");
+  $("cloud-overlay").classList.add("visible");
+  setTimeout(() => $("cloud-email").focus(), 100);
+  envoyerEtat();
+}
+
+function fermerCloudConnexion() {
+  if (!$("cloud-overlay")) return;
+  $("cloud-overlay").classList.remove("visible");
+  $("cloud-mdp").value = "";
+  envoyerEtat();
+}
+
+async function validerCloudConnexion() {
+  const email = $("cloud-email").value.trim();
+  const mdp = $("cloud-mdp").value;
+  if (!email || !mdp) { cloudMessage("Remplis les deux champs", true); return; }
+  cloudMessage("⏳ Connexion…");
+  try {
+    await nuage().connexion(email, mdp);
+    cloudMessage("✔ Connecté !");
+    setTimeout(fermerCloudConnexion, 900);
+    toastGeant("☁️", "CONNECTÉ AU CLOUD", 2200);
+  } catch (e) {
+    cloudMessage("❌ " + messageErreurAuth(e), true);
+  }
+}
+
+function messageErreurAuth(e) {
+  const c = (e && e.code) || "";
+  if (c.includes("invalid-credential") || c.includes("wrong-password")) return "Adresse ou mot de passe incorrect";
+  if (c.includes("user-not-found")) return "Compte inconnu";
+  if (c.includes("too-many-requests")) return "Trop d'essais, réessaie dans un moment";
+  if (c.includes("network")) return "Pas de connexion internet";
+  return (e && e.message) || "Erreur inconnue";
+}
+
+// Branchement tolérant : si la page en cache est plus ancienne que ce script,
+// les éléments du cloud peuvent manquer — le jeu doit continuer de tourner.
+(function brancherCloud() {
+  const valider = $("cloud-valider"), annuler = $("cloud-annuler"), mdp = $("cloud-mdp");
+  if (!valider || !annuler || !mdp) { console.warn("Écran cloud absent de cette page (cache ?)"); return; }
+  valider.addEventListener("click", validerCloudConnexion);
+  annuler.addEventListener("click", fermerCloudConnexion);
+  mdp.addEventListener("keydown", (e) => { if (e.key === "Enter") validerCloudConnexion(); });
+})();
+
+/* ------- Envoi et récupération des jeux ------- */
+
+// Les clés des médias utilisés par un jeu (pour les emporter avec lui)
+function mediasDuJeu(cartes) {
+  const cles = new Set();
+  for (const n in cartes) {
+    for (const cible of ["enfants", "adultes", "commun"]) {
+      const v = cartes[n][cible];
+      if (!v) continue;
+      for (const champ of ["musique", "musique2", "video", "image"]) {
+        const val = v[champ];
+        if (typeof val === "string" && val.startsWith("local:")) cles.add(val.slice(6));
+      }
+    }
+  }
+  return [...cles];
+}
+
+async function cloudSauverJeu(nom) {
+  if (!nuageConnecte()) { ouvrirCloudConnexion(); return; }
+  nom = String(nom || "").trim().slice(0, 60);
+  if (!nom) return;
+  try {
+    const cles = mediasDuJeu(CONFIG.cartes);
+    cloudProgres("☁️ Envoi du jeu…");
+    await nuage().envoyerJeu(nom, CONFIG.cartes, CONFIG.defisSurprise || [], cles);
+
+    // On emporte aussi les gros fichiers utilisés par ce jeu
+    for (let i = 0; i < cles.length; i++) {
+      const cle = cles[i];
+      const fichier = await lireMedia(cle);
+      if (!fichier) continue;
+      cloudProgres("☁️ Fichier " + (i + 1) + "/" + cles.length + " — 0 %");
+      await nuage().envoyerMedia(cle, fichier, (p) => {
+        cloudProgres("☁️ Fichier " + (i + 1) + "/" + cles.length + " — " + p + " %");
+      });
+    }
+    cloudProgres("");
+    toastGeant("☁️", "JEU « " + nom.toUpperCase() + " » SAUVEGARDÉ", 2400);
+    sons.points();
+    // On enregistre aussi une copie locale, pour jouer même sans internet
+    sauverJeu(nom);
+    envoyerCartes();
+  } catch (e) {
+    cloudProgres("");
+    annoncer("⚠️ Cloud : " + ((e && e.message) || e));
+  }
+}
+
+async function cloudChargerJeu(nom) {
+  if (!nuageConnecte()) { ouvrirCloudConnexion(); return; }
+  try {
+    cloudProgres("☁️ Récupération…");
+    const jeu = await nuage().chargerJeu(nom);
+    // Les gros fichiers manquants sont retéléchargés dans le navigateur
+    const cles = jeu.medias || [];
+    for (let i = 0; i < cles.length; i++) {
+      const cle = cles[i];
+      if (await lireMedia(cle)) continue;   // déjà là
+      cloudProgres("☁️ Fichier " + (i + 1) + "/" + cles.length + " — 0 %");
+      const media = await nuage().recupererMedia(cle, (p) => {
+        cloudProgres("☁️ Fichier " + (i + 1) + "/" + cles.length + " — " + p + " %");
+      });
+      if (media) await stockerMedia(cle, new File([media.blob], media.nom, { type: media.mime }));
+    }
+    CONFIG.cartes = clone(jeu.cartes);
+    if (jeu.defis && jeu.defis.length) CONFIG.defisSurprise = clone(jeu.defis);
+    sauverDeck();
+    jeuActif = jeu.nom;
+    try { localStorage.setItem(CLE_JEU_ACTIF, jeu.nom); } catch (e) {}
+    cloudProgres("");
+    rafraichirMur();
+    envoyerCartes();
+    toastGeant("☁️", "JEU « " + String(jeu.nom).toUpperCase() + " » CHARGÉ", 2400);
+    sons.bon();
+  } catch (e) {
+    cloudProgres("");
+    annoncer("⚠️ Cloud : " + ((e && e.message) || e));
+  }
+}
+
+async function cloudSupprimerJeu(nom) {
+  if (!nuageConnecte()) return;
+  try {
+    await nuage().supprimerJeu(nom);
+    envoyerCartes();
+    annoncer("🗑 Jeu « " + nom + " » supprimé du cloud");
+  } catch (e) {
+    annoncer("⚠️ Cloud : " + ((e && e.message) || e));
+  }
+}
+
+// La liste du cloud est envoyée à la télécommande à la demande
+let jeuxCloud = [];
+async function rafraichirJeuxCloud() {
+  if (!nuageConnecte()) { jeuxCloud = []; envoyerCartes(); return; }
+  try {
+    jeuxCloud = await nuage().listerJeux();
+  } catch (e) {
+    jeuxCloud = [];
+  }
+  envoyerCartes();
+}
+
+async function cloudDeconnexion() {
+  if (!nuage()) return;
+  await nuage().deconnexion();
+  jeuxCloud = [];
+  envoyerCartes();
+  annoncer("☁️ Déconnecté du cloud");
+}
 
 /* ---------------------------------------------------------------- Démarrage */
 

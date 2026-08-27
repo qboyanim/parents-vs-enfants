@@ -266,6 +266,13 @@ button:disabled { opacity: .35; }
   </div>
 
   <div style="background:rgba(0,0,0,.35);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-weight:900;font-size:15px;color:#7ec8ff">☁️ Sauvegarde dans le cloud</div>
+    <div id="cloud-etat" style="font-size:13px;color:rgba(255,255,255,.7)"></div>
+    <div id="cloud-actions" style="display:flex;gap:8px"></div>
+    <div id="cloud-liste" style="display:flex;flex-direction:column;gap:6px"></div>
+  </div>
+
+  <div style="background:rgba(0,0,0,.35);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px">
     <div style="font-weight:900;font-size:15px;color:#ffd24a">💾 Mes jeux</div>
     <div id="jeu-actif" style="font-size:13px;color:rgba(255,255,255,.7)"></div>
     <div style="display:flex;gap:8px">
@@ -372,7 +379,7 @@ function choisirOnglet(o) {
   $("pilotage").classList.toggle("actif", o === "jeu");
   $("table-sons").classList.toggle("actif", o === "sons");
   $("parametres").classList.toggle("actif", o === "cartes");
-  if (o === "cartes") rendreCartes();
+  if (o === "cartes") { rendreCartes(); envoyer("cloudLister"); }
 }
 
 /* ------------------------------------------------ Table de sons */
@@ -825,6 +832,7 @@ function rendreCartes() {
   }
   rendreDefis();
   rendreJeux();
+  rendreCloud();
 }
 
 /* ------------------------------------------------ Défis surprise */
@@ -880,6 +888,91 @@ $("btn-sauver-defis").addEventListener("click", () => {
   defisBrouillon = null;   // on repart de la liste confirmée par l'écran
   notifier("✔ " + liste.length + " défis enregistrés");
 });
+
+
+/* ------------------------------------------------ Sauvegarde dans le cloud */
+
+function rendreCloud() {
+  if (!catalogue) return;
+  const c = catalogue.cloud || {};
+  const etat = $("cloud-etat");
+  const actions = $("cloud-actions");
+  const liste = $("cloud-liste");
+  actions.innerHTML = "";
+  liste.innerHTML = "";
+
+  if (!c.disponible) {
+    etat.textContent = "Cloud indisponible (Firebase non configuré sur cet écran).";
+    return;
+  }
+
+  if (!c.utilisateur) {
+    etat.innerHTML = "Non connecté. Tes jeux ne sont enregistrés que sur cet ordinateur.";
+    const b = bouton("☁️ Se connecter au cloud", "bleu", () => {
+      envoyer("cloudConnexion");
+      notifier("👉 Termine la connexion sur le grand écran");
+    }, "flex:1");
+    actions.appendChild(b);
+    return;
+  }
+
+  etat.innerHTML = "Connecté : <b>" + echap(c.utilisateur) + "</b>";
+
+  const champ = document.createElement("input");
+  champ.placeholder = "Nom du jeu à envoyer";
+  champ.maxLength = 60;
+  champ.style.cssText = "flex:1;border-radius:10px;border:1px solid #3a3a55;background:rgba(0,0,0,.45);color:#fff;padding:10px;font-family:inherit;font-size:14px;outline:none;user-select:text;-webkit-user-select:text";
+  champ.value = catalogue.jeuActif || "";
+  actions.appendChild(champ);
+  const bEnvoi = bouton("☁️ Envoyer", "vert", () => {
+    const nom = champ.value.trim();
+    if (!nom) { notifier("⚠ Donne un nom au jeu"); return; }
+    envoyer("cloudSauver", { nom });
+    notifier("☁️ Envoi en cours…");
+    setTimeout(() => envoyer("cloudLister"), 4000);
+  }, "font-size:13px;padding:10px");
+  actions.appendChild(bEnvoi);
+
+  const outils = document.createElement("div");
+  outils.style.cssText = "display:flex;gap:8px";
+  const bMaj = bouton("🔄 Rafraîchir la liste", "", () => envoyer("cloudLister"), "flex:1;font-size:12px;padding:9px");
+  const bOut = bouton("Se déconnecter", "", () => envoyer("cloudDeconnexion"), "flex:1;font-size:12px;padding:9px");
+  outils.appendChild(bMaj); outils.appendChild(bOut);
+  liste.appendChild(outils);
+
+  const jeux = c.jeux || [];
+  if (!jeux.length) {
+    const vide = document.createElement("div");
+    vide.style.cssText = "font-size:12px;color:rgba(255,255,255,.5)";
+    vide.textContent = "Aucun jeu dans le cloud. Touche « 🔄 Rafraîchir » ou envoie ton premier jeu !";
+    liste.appendChild(vide);
+    return;
+  }
+
+  for (const j of jeux) {
+    const ligne = document.createElement("div");
+    ligne.style.cssText = "display:flex;gap:6px;align-items:center";
+    const nom = document.createElement("div");
+    nom.style.cssText = "flex:1;font-size:14px;font-weight:700";
+    nom.textContent = "☁️ " + j.nom + (j.medias && j.medias.length ? "  📎" + j.medias.length : "");
+    const date = document.createElement("div");
+    date.style.cssText = "font-size:11px;color:rgba(255,255,255,.45)";
+    date.textContent = new Date(j.date).toLocaleDateString("fr-FR");
+    const bCharger = bouton("▶ Charger", "bleu", () => {
+      envoyer("cloudCharger", { nom: j.nom });
+      notifier("☁️ Récupération de « " + j.nom + " »…");
+    }, "font-size:12px;padding:8px 10px");
+    const bSuppr = bouton("🗑", "rouge", () => {
+      if (confirm("Supprimer « " + j.nom + " » du cloud ?")) {
+        envoyer("cloudSupprimer", { nom: j.nom });
+        setTimeout(() => envoyer("cloudLister"), 1200);
+      }
+    }, "font-size:12px;padding:8px 10px");
+    ligne.appendChild(nom); ligne.appendChild(date);
+    ligne.appendChild(bCharger); ligne.appendChild(bSuppr);
+    liste.appendChild(ligne);
+  }
+}
 
 /* ------------------------------------------------ Mes jeux (configs nommées) */
 
