@@ -781,6 +781,7 @@ function retourMur(changerTour) {
   $("dcc-mode-badge").classList.remove("visible");
   $("dcc-propositions").classList.remove("visible");
   $("dcc-propositions").innerHTML = "";
+  $("ecran-epreuve").classList.remove("epreuve-avec-choix");
   carteEnCours = null;
   if (changerTour) etat.tour = etat.tour === "enfants" ? "adultes" : "enfants";
   sauvegarder();
@@ -2231,6 +2232,16 @@ function supprimerJeu(nom) {
 
 /* ---------------------------------------------------------------- Duo / Carré / Cash */
 
+// Mélange équitable (Fisher-Yates) : chaque ordre a la même chance de sortir
+function melanger(liste) {
+  const t = liste.slice();
+  for (let i = t.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = t[i]; t[i] = t[j]; t[j] = tmp;
+  }
+  return t;
+}
+
 function baremeDcc(carte) {
   const p = carte.points || 2;
   return { duo: Math.max(1, Math.ceil(p / 2)), carre: p, cash: p * 2 };
@@ -2242,6 +2253,7 @@ function preparerDcc() {
   $("dcc-mode-badge").classList.remove("visible");
   $("dcc-propositions").classList.remove("visible");
   $("dcc-propositions").innerHTML = "";
+  $("ecran-epreuve").classList.remove("epreuve-avec-choix");
   if (!c || !c.aDcc) { choix.classList.remove("visible"); return; }
   const bareme = baremeDcc(c.carte);
   choix.querySelector(".duo small").textContent = "2 choix — " + bareme.duo + " pt" + (bareme.duo > 1 ? "s" : "");
@@ -2264,13 +2276,15 @@ function choisirModeDcc(mode) {
     " — " + bareme[mode] + " point" + (bareme[mode] > 1 ? "s" : "");
   badge.classList.add("visible");
 
-  const props = c.contenu.propositions || [];
+  const props = (c.contenu.propositions || []).filter(Boolean);
   const bonne = props[0];
+  // Les pièges sont tirés au hasard : en DUO, le mauvais choix change à chaque fois
+  const pieges = melanger(props.slice(1));
   let affichees = [];
-  if (mode === "duo") affichees = [bonne, props[1]].filter(x => x != null);
-  if (mode === "carre") affichees = props.slice(0, 4);
-  // mélange
-  affichees = affichees.map(v => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+  if (mode === "duo") affichees = [bonne, pieges[0]].filter(x => x != null);
+  if (mode === "carre") affichees = [bonne].concat(pieges.slice(0, 3)).filter(x => x != null);
+  // …puis l'ordre d'affichage est mélangé, la bonne réponse n'est jamais à une place fixe
+  affichees = melanger(affichees);
   const zone = $("dcc-propositions");
   const lettres = ["A", "B", "C", "D"];
   affichees.forEach((p, i) => {
@@ -2283,6 +2297,7 @@ function choisirModeDcc(mode) {
     zone.appendChild(el);
   });
   if (affichees.length) zone.classList.add("visible");
+  $("ecran-epreuve").classList.toggle("epreuve-avec-choix", affichees.length > 0);
   envoyerEtat();
 }
 
