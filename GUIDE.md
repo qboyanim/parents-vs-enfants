@@ -2,9 +2,10 @@
 
 ## Lancer le jeu
 
-**En ligne (GitHub Pages)** : ouvre l'adresse du site sur l'ordinateur relié au
+**En ligne** : ouvre https://les-lilous-veillee.web.app sur l'ordinateur relié au
 vidéoprojecteur, puis `F11` pour le plein écran. Appuie sur **Espace** (ou clique)
 pour commencer.
+(Adresse de secours : https://qboyanim.github.io/parents-vs-enfants/)
 
 **En local (secours sans internet)** : double-clic sur **index.html** avec Chrome
 ou Edge. Tout le jeu fonctionne hors ligne — seules la télécommande téléphone et
